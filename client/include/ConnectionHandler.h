@@ -37,6 +37,12 @@ public:
 	// Returns false in case connection closed before all the data is sent.
 	bool sendLine(std::string &line);
 
+	// Read a STOMP frame from the server (until '\0')
+    bool getFrame(std::string &frame);
+
+    // Send a STOMP frame to the server (appends '\0')
+    bool sendFrame(const std::string &frame);
+	
 	// Get Ascii data from the server until the delimiter character
 	// Returns false in case connection closed before null can be read.
 	bool getFrameAscii(std::string &frame, char delimiter);

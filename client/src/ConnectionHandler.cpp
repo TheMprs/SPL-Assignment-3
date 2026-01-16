@@ -64,9 +64,12 @@ bool ConnectionHandler::sendBytes(const char bytes[], int bytesToWrite) {
 	return true;
 }
 
+
+
 bool ConnectionHandler::getLine(std::string &line) {
 	return getFrameAscii(line, '\n');
 }
+
 
 bool ConnectionHandler::sendLine(std::string &line) {
 	return sendFrameAscii(line, '\n');
@@ -98,6 +101,15 @@ bool ConnectionHandler::sendFrameAscii(const std::string &frame, char delimiter)
 	return sendBytes(&delimiter, 1);
 }
 
+// בתוך ConnectionHandler.cpp
+
+bool ConnectionHandler::getFrame(std::string &frame) {
+    return getFrameAscii(frame, '\0'); //it simply calls the exiting func with '\0' sign
+}
+
+bool ConnectionHandler::sendFrame(const std::string &frame) {
+    return sendFrameAscii(frame, '\0'); //it simply calls the exiting func with '\0' sign
+}
 // Close down the connection properly.
 void ConnectionHandler::close() {
 	try {
