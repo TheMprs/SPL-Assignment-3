@@ -31,7 +31,7 @@ public class StompProtocolImpl implements StompMessagingProtocol<String> {
 
         switch (frame.getCommand()) {
             case "SEND":
-                connections.send(frame.getHeader("destination"), frame.toString());
+                connections.send(frame.getHeader("destination"), frame.getBody());
                 break;
             case "CONNECT":
                 connections.connect(connectionId, frame.getHeader("login"), frame.getHeader("passcode"));
@@ -44,7 +44,7 @@ public class StompProtocolImpl implements StompMessagingProtocol<String> {
                 connections.subscribe(connectionId, frame.getHeader("destination"), Integer.parseInt(frame.getHeader("id")));
                 break;
             case "UNSUBSCRIBE":
-                connections.unsubscribe(connectionId, Integer.parseInt(frame.getHeader("id")));
+                connections.unsubscribe(connectionId, frame.getHeader("id"));
                 break;
             default:
                 //should not reach here due to prior frame validity check

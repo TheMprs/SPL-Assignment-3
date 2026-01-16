@@ -85,8 +85,7 @@ public class StompFrame {
         }
         
         frame += "\n" + 
-                body + "\n"
-                + "\u0000";
+                body + "\n"; // we dont add the null char here bc the encoder will add it
         return frame;
     }
 
