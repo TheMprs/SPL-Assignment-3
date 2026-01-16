@@ -39,15 +39,22 @@ public class ConnectionsImpl<T> implements Connections<T> {
     
     //Used for generating unique connection ids
     private AtomicInteger connectionIdCounter = new AtomicInteger(0);
-    public boolean send(int connectionId, T msg){
-        //check if msg is null
-        if(msg == null)
-            return false;
 
-        //get the connection handler from the map
-        ConnectionHandler<T> handler = connectionsBook.get(connectionId);
-        if (handler != null){ //check if the handler exists in the map
-            handler.send(msg);
+    public void addConnection(int connectionId, ConnectionHandler<T> handler) {
+        // We create a new session for this ID and store the physical handler.
+        // At this point, the username is still null (the user hasn't logged in yet).
+        sessions.put(connectionId, new UserSession<>(handler));
+    }
+    @Override
+    public boolean send(int connectionId, T msg) {
+        if (msg == null) return false;
+
+        // Get the session associated with this ID
+        UserSession<T> session = sessions.get(connectionId);
+        
+        // If the session exists and has an active handler, send the message
+        if (session != null && session.getHandler() != null) {
+            session.getHandler().send(msg);
             return true;
         }
         return false; 
@@ -73,6 +80,7 @@ public class ConnectionsImpl<T> implements Connections<T> {
                 int subId = entry.getValue();
                 
                 // Create a STOMP MESSAGE frame with the specific subId and shared messageId
+                //REPLACE WITH YUVAL'S?
                 String stompMessage = createStompMessageFrame((String)msg, subId, messageId, channel);
                 
                 // Use the single send method to deliver it
@@ -115,7 +123,7 @@ public class ConnectionsImpl<T> implements Connections<T> {
                             .put(connectionId, subId);
     }
     
-    public void unsubscribe(String channel, int connectionId) {
+    public void unsubscribe(int connectionId,String channel) {
         // 1. Get the internal map for this specific channel
         ConcurrentHashMap<Integer, Integer> subscribers = channelToSubscribers.get(channel);
         
@@ -130,7 +138,7 @@ public class ConnectionsImpl<T> implements Connections<T> {
         }
     }
     
-    
+    //"login"
     public String connect(int connectionId, String username, String password) {
         UserSession<T> currentSession = sessions.get(connectionId);
 
@@ -179,16 +187,17 @@ public class ConnectionsImpl<T> implements Connections<T> {
 
     //Private helper function for disconnect. Without it, disconnected clients would still be in the channels' subscribers lists
     private void removeConnectionFromAllChannels(int connectionId) {
-        //Iterate over all channels and remove the connectionId from their subscribers list
-        for (ConcurrentHashMap<Integer, Integer> subscribers : channelToSubscribers.values()) {
-        subscribers.remove(connectionId);
+    // We iterate over the channel names. 
+    // ConcurrentHashMap's keySet is safe to iterate even if we remove items during the loop.
+        for (String channelName : channelToSubscribers.keySet()) {
+            unsubscribe(connectionId, channelName);
+        }
     }
-}
 
     //Private class to manage each user's session
     private class UserSession<T> {
         private final ConnectionHandler<T> handler;
-        private String username; // Nullable - will be set after successful CONNECT
+        private String username; // Null at first - will be set after successful CONNECT
 
         public UserSession(ConnectionHandler<T> handler) {
             this.handler = handler;
