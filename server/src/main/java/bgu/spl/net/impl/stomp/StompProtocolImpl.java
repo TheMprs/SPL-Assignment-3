@@ -1,5 +1,6 @@
 package bgu.spl.net.impl.stomp;
 import bgu.spl.net.srv.Connections;
+import bgu.spl.net.srv.ConnectionsImpl;
 import bgu.spl.net.api.StompMessagingProtocol;
 
 //new class to implement the StompMessagingProtocol interface according to its new interface 
@@ -7,14 +8,13 @@ public class StompProtocolImpl implements StompMessagingProtocol<String> {
     
     private boolean shouldTerminate = false;
 
-    private Connections<String> connections;
+    private ConnectionsImpl<String> connections;
     private int connectionId;
 
     public void start(int connectionId, Connections<String> connections){
         this.connectionId = connectionId;
-        this.connections = connections;
+        this.connections = (ConnectionsImpl<String>) connections;
     }
-
 
     public void process(String message){
         //create Stomp frame from the message
@@ -31,7 +31,7 @@ public class StompProtocolImpl implements StompMessagingProtocol<String> {
 
         switch (frame.getCommand()) {
             case "SEND":
-                connections.send(frame.getHeader("destination"), frame.getBody());
+                connections.send(frame.getHeader("destination"), frame.toString());
                 break;
             case "CONNECT":
                 connections.connect(connectionId, frame.getHeader("login"), frame.getHeader("passcode"));
@@ -41,10 +41,10 @@ public class StompProtocolImpl implements StompMessagingProtocol<String> {
                 shouldTerminate = true;
                 break;
             case "SUBSCRIBE":
-                connections.subscribe(connectionId, frame.getHeader("destination"), frame.getHeader("id"));
+                connections.subscribe(connectionId, frame.getHeader("destination"), Integer.parseInt(frame.getHeader("id")));
                 break;
             case "UNSUBSCRIBE":
-                connections.unsubscribe(frame.getHeader("id"));
+                connections.unsubscribe(connectionId, Integer.parseInt(frame.getHeader("id")));
                 break;
             default:
                 //should not reach here due to prior frame validity check
