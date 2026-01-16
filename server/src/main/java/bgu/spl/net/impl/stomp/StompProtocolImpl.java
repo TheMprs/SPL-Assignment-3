@@ -17,20 +17,28 @@ public class StompProtocolImpl implements StompMessagingProtocol<String> {
 
 
     public void process(String message){
-        if(message == null)
-            return;
-                
+        //create Stomp frame from the message
         StompFrame frame = new StompFrame(message);
+
+        //check frame validity, if needed create and send error frame, then disconnect
+        if(!frame.checkFrame()){
+            StompFrame errorFrame = frame.generateErrorFrame();
+            connections.send(connectionId, errorFrame.toString());
+            connections.disconnect(connectionId);
+            shouldTerminate = true;
+            return;
+        }
 
         switch (frame.getCommand()) {
             case "SEND":
-                connections.send(message, frame.getBody());
+                connections.send(frame.getHeader("destination"), frame.getBody());
                 break;
             case "CONNECT":
                 connections.connect(connectionId, frame.getHeader("login"), frame.getHeader("passcode"));
                 break;
             case "DISCONNECT":
                 connections.disconnect(connectionId);
+                shouldTerminate = true;
                 break;
             case "SUBSCRIBE":
                 connections.subscribe(connectionId, frame.getHeader("destination"), frame.getHeader("id"));
@@ -39,10 +47,8 @@ public class StompProtocolImpl implements StompMessagingProtocol<String> {
                 connections.unsubscribe(frame.getHeader("id"));
                 break;
             default:
-                //error frame was already generated in StompFrame class
-                connections.send(connectionId, frame.toString());
-                connections.disconnect(connectionId);
-                shouldTerminate = true;
+                //should not reach here due to prior frame validity check
+                break;
         }
     }
 	
