@@ -56,6 +56,14 @@ public class StompFrame {
         return command;
     }
 
+    //flag to indicate if receipt is requested
+    public boolean receiptRequested(){
+        if(headers.containsKey("receipt")){
+            return true;
+        }
+        return false;
+    }
+
     public String getBody() {
         return body;
     }
@@ -102,6 +110,14 @@ public class StompFrame {
         return new StompFrame("ERROR", errHeaders, errBody);
     }
 
+    //create receipt frame based on receipt header
+    public StompFrame generateReceiptFrame(){
+        Map<String, String> receiptHeaders = new HashMap<>();
+        //assume receipt header is present
+        receiptHeaders.put("receipt-id", headers.get("receipt"));
+        return new StompFrame("RECEIPT", receiptHeaders, "");
+    }
+
     //check command correctness and delegate header tests
     public boolean checkFrame(){
         if(error != null) //check if parsing already found an error
@@ -131,7 +147,7 @@ public class StompFrame {
             case "UNSUBSCRIBE":
                 return checkParam("id");
             case "DISCONNECT":
-                return checkParam("receipt");
+                return checkParam("receipt:");
             default: //unknown command 
                 error = "unknown command";
                 return false;
@@ -144,7 +160,5 @@ public class StompFrame {
             return true;
         error = "missing required header: " + key;
         return false;
-    }
-
-    
+    }    
 }
