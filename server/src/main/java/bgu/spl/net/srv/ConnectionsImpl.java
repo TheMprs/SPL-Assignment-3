@@ -1,7 +1,10 @@
 package bgu.spl.net.srv;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
+
+import bgu.spl.net.impl.stomp.StompFrame;
 
 //new class implemented according to page 9 of the assignemnt
 public class ConnectionsImpl<T> implements Connections<T> {
@@ -79,12 +82,17 @@ public class ConnectionsImpl<T> implements Connections<T> {
                 int connectionId = entry.getKey();
                 int subId = entry.getValue();
                 
-                // Create a STOMP MESSAGE frame with the specific subId and shared messageId
-                //REPLACE WITH YUVAL'S?
-                String stompMessage = createStompMessageFrame((String)msg, subId, messageId, channel);
+               
+                Map<String,String> headers = new HashMap<>();
+                headers.put("subsription", ""+subId);
+                headers.put("message-id", ""+messageId);
+                headers.put("destination", ""+channel);
+
+
+                StompFrame frame = new StompFrame("MESSAGE", headers, (String)msg);
                 
                 // Use the single send method to deliver it
-                send(connectionId, (T)stompMessage);
+                send(connectionId, (T)frame.toString());
             }
         }
     }
@@ -175,15 +183,6 @@ public class ConnectionsImpl<T> implements Connections<T> {
         return messageIdCounter.getAndIncrement();
     }
 
-    //I'm not sure if this logic has to be done here, **review it later**
-   private String createStompMessageFrame(String body, int subId, int messageId, String channel) {
-        return "MESSAGE\n" +
-               "subscription:" + subId + "\n" +
-               "destination:" + channel + "\n" +
-               "message-id:" + messageId + "\n" +
-               "\n" +
-               body + "\u0000";
-    }
 
     //Private helper function for disconnect. Without it, disconnected clients would still be in the channels' subscribers lists
     private void removeConnectionFromAllChannels(int connectionId) {

@@ -101,8 +101,6 @@ bool ConnectionHandler::sendFrameAscii(const std::string &frame, char delimiter)
 	return sendBytes(&delimiter, 1);
 }
 
-// בתוך ConnectionHandler.cpp
-
 bool ConnectionHandler::getFrame(std::string &frame) {
     return getFrameAscii(frame, '\0'); //it simply calls the exiting func with '\0' sign
 }
