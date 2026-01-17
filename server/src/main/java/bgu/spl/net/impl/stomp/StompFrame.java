@@ -97,8 +97,13 @@ public class StompFrame {
         return frame;
     }
 
-    //send error message and disconnect client in case of malformed frame
+    //automatic error frame generation based on stored error message
     public StompFrame generateErrorFrame(){
+        return generateErrorFrame(getError());
+    }
+
+    //manual error frame generation with custom message
+    public StompFrame generateErrorFrame(String errorMessage){
         Map<String, String> errHeaders = new HashMap<>();
         errHeaders.put("message", "malformed frame received");
         
@@ -106,7 +111,7 @@ public class StompFrame {
         String originalBody = this.toString().replace("\u0000", ""); 
 
         //wrap original frame and error message in the body
-        String errBody = "The message:\n-----\n" + originalBody + "\n-----\n" + this.error;
+        String errBody = "The message:\n-----\n" + originalBody + "\n-----\n" + errorMessage;
         return new StompFrame("ERROR", errHeaders, errBody);
     }
 
@@ -116,6 +121,13 @@ public class StompFrame {
         //assume receipt header is present
         receiptHeaders.put("receipt-id", headers.get("receipt"));
         return new StompFrame("RECEIPT", receiptHeaders, "");
+    }
+
+    //create connected frame after successful connection
+    public StompFrame generateConnectedFrame(String version){
+        Map<String, String> connectedHeaders = new HashMap<>();
+        connectedHeaders.put("version", version);
+        return new StompFrame("CONNECTED", connectedHeaders, "");
     }
 
     //check command correctness and delegate header tests
@@ -147,7 +159,7 @@ public class StompFrame {
             case "UNSUBSCRIBE":
                 return checkParam("id");
             case "DISCONNECT":
-                return checkParam("receipt:");
+                return true; //user can either disonnect gracefully or not
             default: //unknown command 
                 error = "unknown command";
                 return false;

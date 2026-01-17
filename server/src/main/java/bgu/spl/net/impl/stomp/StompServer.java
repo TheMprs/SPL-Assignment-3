@@ -13,8 +13,8 @@ public class StompServer {
         if(serverType.equals("tpc")){
             Server.threadPerClient(
                 port, 
-                StompMessagingProtocolImpl::new, 
-                StompEncoderDecoder::new
+                () -> new StompMessagingProtocol(), 
+                () -> new StompEncoderDecoder()
             ).serve();
         }
         

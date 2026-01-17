@@ -11,7 +11,7 @@ public class ConnectionsImpl<T> implements Connections<T> {
    //All active connections. The key is the connectionId
     private ConcurrentHashMap<Integer, UserSession<T>> sessions = new ConcurrentHashMap<>();
 
-    // Quick index to find active users by their username
+    // Quick index to find logged in users by their username
     private ConcurrentHashMap<String, UserSession<T>> activeUsersByName = new ConcurrentHashMap<>();
 
     //The "database" of registered users (username -> password)
@@ -19,24 +19,7 @@ public class ConnectionsImpl<T> implements Connections<T> {
 
     //The value of the map is another map that maps connectionId to subscriptionId
     private ConcurrentHashMap<String, ConcurrentHashMap<Integer, Integer>> channelToSubscribers = new ConcurrentHashMap<>();
-    /*
-    //map of connectionId to connectionHandler
-    private ConcurrentHashMap <Integer, ConnectionHandler<T>> connectionsBook = new ConcurrentHashMap<>();
-    //The value of the map is another map that maps connectionId to subscriptionId
-    private ConcurrentHashMap<String, ConcurrentHashMap<Integer, Integer>> channelToSubscribers = new ConcurrentHashMap<>();
     
-    //Registered users "Database"
-    //maps username to password
-    private ConcurrentHashMap<String, String> userPasswords = new ConcurrentHashMap<>();
-
-    //Active users (Session Management)
-    //maps username to connectionId
-    private ConcurrentHashMap<String, Integer> activeUsers = new ConcurrentHashMap<>();
-
-    //maps connectionId to username
-    private ConcurrentHashMap<Integer, String> userNamesPerConnection = new ConcurrentHashMap<>();
-    
-    */
     //Used for generating unique message ids for broadcast messages
     private AtomicInteger messageIdCounter = new AtomicInteger(0);
     
@@ -48,6 +31,7 @@ public class ConnectionsImpl<T> implements Connections<T> {
         // At this point, the username is still null (the user hasn't logged in yet).
         sessions.put(connectionId, new UserSession<>(handler));
     }
+    
     @Override
     public boolean send(int connectionId, T msg) {
         if (msg == null) return false;
@@ -63,9 +47,7 @@ public class ConnectionsImpl<T> implements Connections<T> {
         return false; 
     }
     
-   /**
-     * Sends a message to all clients subscribed to a specific channel.
-     */
+    //Sends a message to all clients subscribed to a specific channel.
     @Override
     public void send(String channel, T msg) {
         if (msg == null || channel == null) return;
@@ -128,7 +110,7 @@ public class ConnectionsImpl<T> implements Connections<T> {
         channelToSubscribers.computeIfAbsent(channel, k -> new ConcurrentHashMap<>())
         
         // 4. Get the (new or existing) internal map and add the user's connectionId and subId.
-                            .put(connectionId, subId);
+            .put(connectionId, subId);
     }
     
     public void unsubscribe(int connectionId,String channel) {
@@ -169,6 +151,7 @@ public class ConnectionsImpl<T> implements Connections<T> {
         currentSession.setUsername(username);
         return "Success";
     }
+    
     //Helper func to generate unique connection ids for new connections 
     //(Does not add the connection handler itself!)
     public int getNewConnectionId() {
@@ -183,7 +166,6 @@ public class ConnectionsImpl<T> implements Connections<T> {
         return messageIdCounter.getAndIncrement();
     }
 
-
     //Private helper function for disconnect. Without it, disconnected clients would still be in the channels' subscribers lists
     private void removeConnectionFromAllChannels(int connectionId) {
     // We iterate over the channel names. 
@@ -191,6 +173,23 @@ public class ConnectionsImpl<T> implements Connections<T> {
         for (String channelName : channelToSubscribers.keySet()) {
             unsubscribe(connectionId, channelName);
         }
+    }
+
+    //check if a user is logged in based on connectionId
+    public boolean isUserLoggedIn(int connectionId) {
+        //check if session exists
+        boolean loggedIn = sessions.containsKey(connectionId);
+        // check if session has a username associated
+        loggedIn = loggedIn && sessions.get(connectionId).getUsername() != null;
+        return loggedIn;
+    }
+
+    //check if a user is subscribed to a specific channel
+    public boolean isUserSubscribed(int connectionId, String channel) {
+        //fetch subscribers map for the channel
+        ConcurrentHashMap<Integer, Integer> subscribers = channelToSubscribers.get(channel);
+        //check if channel exists and if the user is in its subscribers list
+        return subscribers != null && subscribers.containsKey(connectionId);
     }
 
     //Private class to manage each user's session

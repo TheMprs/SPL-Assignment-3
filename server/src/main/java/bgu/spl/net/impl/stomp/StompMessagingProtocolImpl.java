@@ -53,21 +53,44 @@ public class StompMessagingProtocolImpl implements StompMessagingProtocol<String
     }
 
     private void handleSend(StompFrame frame){
-        //send message to all subscribers of the destination channel
-        connections.send(frame.getHeader("destination"), frame.getBody());
-        //send receipt if requested
-        if(frame.receiptRequested()){
-            connections.send(connectionId, frame.generateReceiptFrame().toString());
+        String channel = frame.getHeader("destination");
+        //check if user is logged in and subscribed to the channel
+        if(connections.isUserLoggedIn(connectionId) && connections.isUserSubscribed(connectionId, channel)) {
+                //send message to all subscribers of the destination channel
+                connections.send(channel, frame.getBody());
+                //send receipt if requested
+                if(frame.receiptRequested()){
+                    connections.send(connectionId, frame.generateReceiptFrame().toString());
+                }
         }
+        else{ // user not logged in or isnt subscribed, send error frame and disconnect
+            StompFrame errorFrame = frame.generateErrorFrame("User not logged in or not subscribed to channel: " + channel);
+            connections.send(connectionId, errorFrame.toString());
+            connections.disconnect(connectionId);
+            shouldTerminate = true;
+        }
+        
     }
 
     private void handleConnect(StompFrame frame){
         //register client in connections map
-        connections.connect(connectionId, frame.getHeader("login"), frame.getHeader("passcode"));
-        //send receipt if requested
-        if(frame.receiptRequested()){
-            connections.send(connectionId, frame.generateReceiptFrame().toString());
+        String connectionMessage = connections.connect(connectionId, frame.getHeader("login"), frame.getHeader("passcode"));
+        if(connectionMessage.equals("Success")){ //if connection's successful, send connected frame
+            //read version from accept-version header
+            String version = frame.getHeader("accept-version");
+
+            //generate and send connected frame
+            StompFrame connectedFrame = frame.generateConnectedFrame(version);
+            connections.send(connectionId, connectedFrame.toString());
         }
+        else { //error connecting, send error frame and disconnect
+            StompFrame errorFrame = frame.generateErrorFrame(connectionMessage);
+            connections.send(connectionId, errorFrame.toString());
+            connections.disconnect(connectionId);
+            shouldTerminate = true;
+        }
+        
+        //receipt isn't an option for CONNECT frames
     }
 
     private void handleDisconnect(StompFrame frame){
@@ -83,26 +106,64 @@ public class StompMessagingProtocolImpl implements StompMessagingProtocol<String
     }
 
     private void handleSubscribe(StompFrame frame){
-        //log client's channel -> id translation in subscription map
-        channelIds.put(Integer.parseInt(frame.getHeader("id")), frame.getHeader("destination"));
-        //subscribe client to channel
-        connections.subscribe(connectionId, frame.getHeader("destination"), Integer.parseInt(frame.getHeader("id")));
-        //send receipt if requested    
-        if(frame.receiptRequested()){
-            connections.send(connectionId, frame.generateReceiptFrame().toString());
+        if(connections.isUserLoggedIn(connectionId)){
+            //we only allow clients to subscribe once to each channel
+            if(connections.isUserSubscribed(connectionId, frame.getHeader("destination"))){
+                //send error frame and disconnect
+                StompFrame errorFrame = frame.generateErrorFrame("User already subscribed to channel: " + frame.getHeader("destination"));
+                connections.send(connectionId, errorFrame.toString());
+                connections.disconnect(connectionId);
+                shouldTerminate = true;
+            }
+            // we require unique subscription ids per client
+            else if(channelIds.containsKey(Integer.parseInt(frame.getHeader("id")))){
+                //send error frame and disconnect
+                StompFrame errorFrame = frame.generateErrorFrame("Subscription id already in use: " + frame.getHeader("id"));
+                connections.send(connectionId, errorFrame.toString());
+                connections.disconnect(connectionId);
+                shouldTerminate = true;
+            }
+            // user logged in, not subscribed yet and id not in use
+            else{
+                //log client's channel -> id translation in subscription map
+                channelIds.put(Integer.parseInt(frame.getHeader("id")), frame.getHeader("destination"));
+                //subscribe client to channel
+                connections.subscribe(connectionId, frame.getHeader("destination"), Integer.parseInt(frame.getHeader("id")));
+                //send receipt if requested    
+                if(frame.receiptRequested()){
+                    connections.send(connectionId, frame.generateReceiptFrame().toString());
+                }
+            }
+        }
+        else{
+            //send error frame and disconnect
+            StompFrame errorFrame = frame.generateErrorFrame("User not logged in");
+            connections.send(connectionId, errorFrame.toString());
+            connections.disconnect(connectionId);
+            shouldTerminate = true;
         }
     }
 
     private void handleUnsubscribe(StompFrame frame){  
-        //get channel name from client's subscription map
-        String channel = channelIds.get(Integer.parseInt(frame.getHeader("id")));
-        //remove channel from client's subscription map
-        channelIds.remove(Integer.parseInt(frame.getHeader("id")));
-        //unsubscribe client from channel
-        connections.unsubscribe(connectionId, channel);
-        //send receipt if requested
-        if(frame.receiptRequested()){
-            connections.send(connectionId, frame.generateReceiptFrame().toString());
+        if(connections.isUserLoggedIn(connectionId)){
+            //get channel name from client's subscription map
+            String channel = channelIds.get(Integer.parseInt(frame.getHeader("id")));
+            //remove channel from client's subscription map
+            channelIds.remove(Integer.parseInt(frame.getHeader("id")));
+            //unsubscribe client from channel
+            connections.unsubscribe(connectionId, channel);
+            //send receipt if requested
+            if(frame.receiptRequested()){
+                connections.send(connectionId, frame.generateReceiptFrame().toString());
+            }
+        }
+        //user not logged in
+        else{
+            //send error frame and disconnect
+            StompFrame errorFrame = frame.generateErrorFrame("User not logged in");
+            connections.send(connectionId, errorFrame.toString());
+            connections.disconnect(connectionId);
+            shouldTerminate = true;
         }
     }
 
