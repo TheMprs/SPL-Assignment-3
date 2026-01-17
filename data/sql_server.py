@@ -7,7 +7,7 @@ DO NOT CHANGE the server name or the basic protocol.
 Students should EXTEND this server by implementing
 the methods below.
 """
-
+import sqlite3
 import socket
 import sys
 import threading
@@ -30,15 +30,70 @@ def recv_null_terminated(sock: socket.socket) -> str:
 
 
 def init_database():
-    pass
+    # Initialize SQLite database
+    dbcon = sqlite3.connect(DB_FILE)
+    with dbcon:
+        cursor = dbcon.cursor()
+        # 1st table for users  
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS users (
+                username TEXT PRIMARY KEY,
+                password TEXT NOT NULL
+            )
+        """)
 
+        # 2nd table for login/logout history
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS journal (
+                username TEXT PRIMARY KEY,
+                connection_id INTEGER NOT NULL,
+                login_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                logout_time TIMESTAMP,
+                FOREIGN KEY (username) REFERENCES users(username)
+            )
+        """)
 
+        # 3rd table for files
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS files (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                filename TEXT NOT NULL,
+                uploader TEXT NOT NULL,
+                upload_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                channel TEXT NOT NULL,
+                FOREIGN KEY (uploader) REFERENCES users(username)
+            )
+        """)
+    dbcon.commit()
+
+        
 def execute_sql_command(sql_command: str) -> str:
+    # Execute a non-query SQL command (INSERT, UPDATE, DELETE)
+    try:
+        dbcon = sqlite3.connect(DB_FILE)
+        with dbcon:
+            cursor = dbcon.cursor()
+            cursor.execute(sql_command)
+            dbcon.commit()
+    except sqlite3.Error as e:
+        print(f"{sql_command} Error: {e}")
     return "done"
 
 
 def execute_sql_query(sql_query: str) -> str:
-    return "done"
+    # Execute a SELECT command and return results
+    results = []
+    try:
+        dbcon = sqlite3.connect(DB_FILE)
+        with dbcon:
+            cursor = dbcon.cursor()
+            cursor.execute(sql_query)
+            rows = cursor.fetchall()
+            result_strings =  [str(row) for row in rows]
+            return "SUCCESS |" + "|".join(result_strings)
+    except sqlite3.Error as e:
+        return(f"{sql_query} Error: {e}")
+
 
 
 def handle_client(client_socket: socket.socket, addr):
@@ -49,11 +104,18 @@ def handle_client(client_socket: socket.socket, addr):
             message = recv_null_terminated(client_socket)
             if message == "":
                 break
-
+                
             print(f"[{SERVER_NAME}] Received:")
             print(message)
 
-            client_socket.sendall(b"done\0")
+            # Added logic to handle SQL commands
+            if message.startswith("SELECT"):
+                response = execute_sql_query(message)
+            else:
+                response = execute_sql_command(message)
+
+            # Send response back to client
+            client_socket.sendall((response+"\0").encode("utf-8"))
 
     except Exception as e:
         print(f"[{SERVER_NAME}] Error handling client {addr}: {e}")
@@ -64,6 +126,16 @@ def handle_client(client_socket: socket.socket, addr):
             pass
         print(f"[{SERVER_NAME}] Client {addr} disconnected")
 
+def report():
+    print(f"[{SERVER_NAME}] Reporting server status...")
+    # get all users
+    users = execute_sql_query("SELECT * FROM users;")
+    for user in users:
+        print(f"User: {user}")
+        logins = execute_sql_query(f"SELECT * FROM journal WHERE username='{user}';")
+        print("login history: "+str(logins))
+        files = execute_sql_query(f"SELECT * FROM files WHERE uploader='{user}';")
+        print("files uploaded: "+str(files))
 
 def start_server(host="127.0.0.1", port=7778):
     server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -94,6 +166,7 @@ def start_server(host="127.0.0.1", port=7778):
 
 
 if __name__ == "__main__":
+    init_database()
     port = 7778
     if len(sys.argv) > 1:
         raw_port = sys.argv[1].strip()
