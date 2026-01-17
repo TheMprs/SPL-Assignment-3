@@ -38,18 +38,24 @@ public abstract class BaseServer<T> implements Server<T> {
             this.sock = serverSock; //just to be able to close
 
             while (!Thread.currentThread().isInterrupted()) {
-                StompMessagingProtocol stompProtocol = protocolFactory.get();
+                
                 Socket clientSock = serverSock.accept();
+                StompMessagingProtocol<T> stompProtocol = protocolFactory.get();
                 int connection_id = connections.getNewConnectionId();
                 stompProtocol.start(connection_id, connections);
 
 
 
-                BlockingConnectionHandler<T> handler = new BlockingConnectionHandler<>(
+                BlockingConnectionHandler<T> handler = new BlockingConnectionHandler<T>(
                         clientSock,
                         encdecFactory.get(),
-                        protocolFactory.get());
+                        stompProtocol);
                 
+                connections.addConnection(connection_id,handler); 
+                //We added the connection to "connections" BEFORE executing the handler,
+                //to prevent for example a case where the thread started and client tries
+                //to login before his connection is registered
+                //
                 execute(handler);
             }
         } catch (IOException ex) {

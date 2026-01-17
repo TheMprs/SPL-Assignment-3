@@ -11,4 +11,5 @@ public interface Connections<T> {
     void disconnect(int connectionId);
 
     int getNewConnectionId(); //Added to keep BaseServer generic for now
+    void addConnection(int connectionId, ConnectionHandler<T> handler);
 }
