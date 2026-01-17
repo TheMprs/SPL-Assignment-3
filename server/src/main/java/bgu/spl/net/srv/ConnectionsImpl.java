@@ -1,16 +1,15 @@
 package bgu.spl.net.srv;
+
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.logging.Handler;
-
 import bgu.spl.net.impl.data.Database;
 import bgu.spl.net.impl.data.LoginStatus;
 import bgu.spl.net.impl.data.User;
 import bgu.spl.net.impl.stomp.StompFrame;
 
-//new class implemented according to page 9 of the assignemnt
+//new class implemented according to page 9 of the assignment
 public class ConnectionsImpl<T> implements Connections<T> {
     //Singleton Database instance
     private final Database database = Database.getInstance();
@@ -168,12 +167,6 @@ public class ConnectionsImpl<T> implements Connections<T> {
     public boolean isUserLoggedIn(int connectionId) {
         User user = database.getUserByConnectionId(connectionId);
         return user != null && user.isLoggedIn();
-
-        // //check if session exists
-        // boolean loggedIn = sessions.containsKey(connectionId);
-        // // check if session has a username associated
-        // loggedIn = loggedIn && sessions.get(connectionId).getUsername() != null;
-        // return loggedIn;
     }
 
     //check if a user is subscribed to a specific channel
@@ -188,7 +181,6 @@ public class ConnectionsImpl<T> implements Connections<T> {
     // class to wrapping user with their respective connection handler
     private class UserSession<T> {
         private User user;
-
         private final ConnectionHandler<T> handler;
         
         public UserSession(ConnectionHandler<T> handler) {

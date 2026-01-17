@@ -146,6 +146,10 @@ public class Database {
 		}
 	}
 
+	public User getUserByConnectionId(int connectionId) {
+		return connectionsIdMap.get(connectionId);
+	}
+
 	/**
 	 * Track file upload in SQL database
 	 * @param username User who uploaded the file
