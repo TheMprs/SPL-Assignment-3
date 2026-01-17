@@ -45,13 +45,15 @@ def init_database():
         # 2nd table for login/logout history
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS journal (
-                username TEXT PRIMARY KEY,
+                id INTEGER PRIMARY KEY AUTOINCREMENT, 
+                username TEXT NOT NULL,
                 connection_id INTEGER NOT NULL,
                 login_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 logout_time TIMESTAMP,
                 FOREIGN KEY (username) REFERENCES users(username)
             )
         """)
+        # we make the id be unique and autoincremented to identify each login session
 
         # 3rd table for files
         cursor.execute("""
@@ -125,17 +127,6 @@ def handle_client(client_socket: socket.socket, addr):
         except Exception:
             pass
         print(f"[{SERVER_NAME}] Client {addr} disconnected")
-
-def report():
-    print(f"[{SERVER_NAME}] Reporting server status...")
-    # get all users
-    users = execute_sql_query("SELECT * FROM users;")
-    for user in users:
-        print(f"User: {user}")
-        logins = execute_sql_query(f"SELECT * FROM journal WHERE username='{user}';")
-        print("login history: "+str(logins))
-        files = execute_sql_query(f"SELECT * FROM files WHERE uploader='{user}';")
-        print("files uploaded: "+str(files))
 
 def start_server(host="127.0.0.1", port=7778):
     server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
