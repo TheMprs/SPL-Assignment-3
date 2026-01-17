@@ -1,7 +1,6 @@
 package bgu.spl.net.srv;
 
 import bgu.spl.net.api.MessageEncoderDecoder;
-import bgu.spl.net.api.MessagingProtocol;
 import bgu.spl.net.api.StompMessagingProtocol;
 
 import java.io.IOException;
@@ -44,8 +43,6 @@ public abstract class BaseServer<T> implements Server<T> {
                 int connection_id = connections.getNewConnectionId();
                 stompProtocol.start(connection_id, connections);
 
-
-
                 BlockingConnectionHandler<T> handler = new BlockingConnectionHandler<T>(
                         clientSock,
                         encdecFactory.get(),
@@ -55,7 +52,6 @@ public abstract class BaseServer<T> implements Server<T> {
                 //We added the connection to "connections" BEFORE executing the handler,
                 //to prevent for example a case where the thread started and client tries
                 //to login before his connection is registered
-                //
                 execute(handler);
             }
         } catch (IOException ex) {
