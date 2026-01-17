@@ -3,21 +3,23 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.logging.Handler;
 
+import bgu.spl.net.impl.data.Database;
+import bgu.spl.net.impl.data.LoginStatus;
+import bgu.spl.net.impl.data.User;
 import bgu.spl.net.impl.stomp.StompFrame;
 
 //new class implemented according to page 9 of the assignemnt
 public class ConnectionsImpl<T> implements Connections<T> {
-   //All active connections. The key is the connectionId
+    //Singleton Database instance
+    private final Database database = Database.getInstance();
+    
+    //All active connections. The key is the connectionId
     private ConcurrentHashMap<Integer, UserSession<T>> sessions = new ConcurrentHashMap<>();
 
-    // Quick index to find logged in users by their username
-    private ConcurrentHashMap<String, UserSession<T>> activeUsersByName = new ConcurrentHashMap<>();
-
-    //The "database" of registered users (username -> password)
-    private ConcurrentHashMap<String, String> userPasswords = new ConcurrentHashMap<>();
-
-    //The value of the map is another map that maps connectionId to subscriptionId
+    // map of channel name to its subscribers
+    // subscribers are represented as <connectionId, subscriptionId>
     private ConcurrentHashMap<String, ConcurrentHashMap<Integer, Integer>> channelToSubscribers = new ConcurrentHashMap<>();
     
     //Used for generating unique message ids for broadcast messages
@@ -26,9 +28,10 @@ public class ConnectionsImpl<T> implements Connections<T> {
     //Used for generating unique connection ids
     private AtomicInteger connectionIdCounter = new AtomicInteger(0);
 
+    //code for user connection to socket, not necessarily logging in
     public void addConnection(int connectionId, ConnectionHandler<T> handler) {
-        // We create a new session for this ID and store the physical handler.
-        // At this point, the username is still null (the user hasn't logged in yet).
+        // We create a new session for this ID and handler.
+        // the user hasn't logged in yet.
         sessions.put(connectionId, new UserSession<>(handler));
     }
     
@@ -39,7 +42,7 @@ public class ConnectionsImpl<T> implements Connections<T> {
         // Get the session associated with this ID
         UserSession<T> session = sessions.get(connectionId);
         
-        // If the session exists and has an active handler, send the message
+        // If user's online and has a valid handler, send the message
         if (session != null && session.getHandler() != null) {
             session.getHandler().send(msg);
             return true;
@@ -47,69 +50,82 @@ public class ConnectionsImpl<T> implements Connections<T> {
         return false; 
     }
     
-    //Sends a message to all clients subscribed to a specific channel.
+    //send a message to all online users subscribed to a specific channel.
     @Override
     public void send(String channel, T msg) {
         if (msg == null || channel == null) return;
 
-        // Get all subscribers for this channel. subscribers is a map: connectionId to subscriptionId
+        // Get all subscribers for this channel. 
+        // subscribers are represented as <connectionId, subscriptionId>
         ConcurrentHashMap<Integer, Integer> subscribers = channelToSubscribers.get(channel);
         
         if (subscribers != null) {
             // Generate one message-id for the entire broadcast
             int messageId = generateMessageId();
 
-            // Iterate over each subscriber and send a personalized frame
+            // Iterate over each online subscriber and send a personalized frame
             for (Map.Entry<Integer, Integer> entry : subscribers.entrySet()) {
                 int connectionId = entry.getKey();
-                int subId = entry.getValue();
-                
+                int subId = entry.getValue();   
                
                 Map<String,String> headers = new HashMap<>();
                 headers.put("subsription", ""+subId);
                 headers.put("message-id", ""+messageId);
                 headers.put("destination", ""+channel);
 
-
                 StompFrame frame = new StompFrame("MESSAGE", headers, (String)msg);
                 
-                // Use the single send method to deliver it
-                send(connectionId, (T)frame.toString());
+                send(connectionId, (T) frame.toString());
             }
         }
     }
     
+    //"login" method
+    public LoginStatus connect(int connectionId, String username, String password) {
+        //delegate login to database
+        LoginStatus status = database.login(connectionId, username, password);
+        
+        //in case of successful login, set the user to be online in the session map
+        if(status == LoginStatus.LOGGED_IN_SUCCESSFULLY || status == LoginStatus.ADDED_NEW_USER){
+            User user = database.getUserByConnectionId(connectionId);
+            sessions.get(connectionId).setUser(user);
+        }
+        return status;
+    }
+    
     @Override 
     public void disconnect(int connectionId) {
-        // 1. Remove the session from the sessions map using the connectionId
+        // 1. make user no longer "active" in the sessions map
         UserSession<T> session = sessions.remove(connectionId);
 
+        // if user was online, proceed with logout and cleanup
         if (session != null) {
-            // 2. If the user was logged in (had a username), remove from the active users index
-            String username = session.getUsername();
-            if (username != null) {
-                activeUsersByName.remove(username);
+            User user = session.getUser();
+            if (user != null) {
+                // log the logout in the database
+                database.logout(connectionId);
             }
 
-            // 3. Try to close the physical connection handler
+            // 3. close the physical connection handler
             try {
                 session.getHandler().close();
             } catch (Exception e) {
-                // If already closed or failed, we ignore it
+                // if socket already closed or failed, we ignore it
             }
         }
-
+        
         // 4. Clean up all channel subscriptions for this connection
         removeConnectionFromAllChannels(connectionId);
+
     }
 
     public void subscribe(int connectionId, String channel , int subId) {
-        // 1. If the channel does not exist in the map, create a new internal map for it.
-        // 2. 'k' is the channel name (the key), we just create a new map for this key.
-        // 3. This operation is atomic and thread-safe.
+        // 1. if the channel does not exist in the map, create a new internal map for it.
+        // 2. 'k' is the channel name (the key), we create a new map for this key.
+        // * this operation is atomic and thread-safe.
         channelToSubscribers.computeIfAbsent(channel, k -> new ConcurrentHashMap<>())
         
-        // 4. Get the (new or existing) internal map and add the user's connectionId and subId.
+        // 3. get the (new or existing) internal map and add the user's connectionId and subId.
             .put(connectionId, subId);
     }
     
@@ -128,48 +144,21 @@ public class ConnectionsImpl<T> implements Connections<T> {
         }
     }
     
-    //"login"
-    public String connect(int connectionId, String username, String password) {
-        UserSession<T> currentSession = sessions.get(connectionId);
-
-        //Checking if password is correct and register the user if needed.
-        //No need to synch because password can't be changed, according to the assignment description.
-        String existingPassword = userPasswords.putIfAbsent(username, password);
-        if (existingPassword != null && !existingPassword.equals(password)) {
-            return "Wrong password";
-        }
-
-        //Atomic login attempt - ensuring no double logins with the same username
-        UserSession<T> alreadyConnected = activeUsersByName.putIfAbsent(username, currentSession);
-        
-        if (alreadyConnected != null) {
-            //Someone is already logged in with this username
-            return "User already logged in";
-        }
-
-        //Successful login, update the session info
-        currentSession.setUsername(username);
-        return "Success";
-    }
-    
-    //Helper func to generate unique connection ids for new connections 
+    //generate unique connection id for new connection 
     //(Does not add the connection handler itself!)
     public int getNewConnectionId() {
         return connectionIdCounter.getAndIncrement();
     }
     
-    //----------------
-    //PRIVATE METHODS
-    //----------------
-    //Generate unique message ids for broadcast messages
+    //generate unique message ids for broadcast messages
     private int generateMessageId(){
         return messageIdCounter.getAndIncrement();
     }
 
-    //Private helper function for disconnect. Without it, disconnected clients would still be in the channels' subscribers lists
+    //private helper function for disconnect. Without it, disconnected clients would still be in the channels' subscribers lists
     private void removeConnectionFromAllChannels(int connectionId) {
-    // We iterate over the channel names. 
-    // ConcurrentHashMap's keySet is safe to iterate even if we remove items during the loop.
+        // we iterate over the channel names. 
+        // ConcurrentHashMap's keySet is safe to iterate even if we remove items during the loop.
         for (String channelName : channelToSubscribers.keySet()) {
             unsubscribe(connectionId, channelName);
         }
@@ -177,34 +166,39 @@ public class ConnectionsImpl<T> implements Connections<T> {
 
     //check if a user is logged in based on connectionId
     public boolean isUserLoggedIn(int connectionId) {
-        //check if session exists
-        boolean loggedIn = sessions.containsKey(connectionId);
-        // check if session has a username associated
-        loggedIn = loggedIn && sessions.get(connectionId).getUsername() != null;
-        return loggedIn;
+        User user = database.getUserByConnectionId(connectionId);
+        return user != null && user.isLoggedIn();
+
+        // //check if session exists
+        // boolean loggedIn = sessions.containsKey(connectionId);
+        // // check if session has a username associated
+        // loggedIn = loggedIn && sessions.get(connectionId).getUsername() != null;
+        // return loggedIn;
     }
 
     //check if a user is subscribed to a specific channel
     public boolean isUserSubscribed(int connectionId, String channel) {
         //fetch subscribers map for the channel
         ConcurrentHashMap<Integer, Integer> subscribers = channelToSubscribers.get(channel);
+        
         //check if channel exists and if the user is in its subscribers list
         return subscribers != null && subscribers.containsKey(connectionId);
     }
 
-    //Private class to manage each user's session
+    // class to wrapping user with their respective connection handler
     private class UserSession<T> {
-        private final ConnectionHandler<T> handler;
-        private String username; // Null at first - will be set after successful CONNECT
+        private User user;
 
+        private final ConnectionHandler<T> handler;
+        
         public UserSession(ConnectionHandler<T> handler) {
+            this.user = null;
             this.handler = handler;
-            this.username = null;
         }
 
-        public void setUsername(String username) { this.username = username; }
-        public String getUsername() { return username; }
+        public void setUser(User user) { this.user = user; }
         public ConnectionHandler<T> getHandler() { return handler; }
+        public User getUser() { return user; }
     }
 
 }

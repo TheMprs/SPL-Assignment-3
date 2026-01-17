@@ -1,6 +1,8 @@
 package bgu.spl.net.impl.stomp;
 import java.util.HashMap;
 import java.util.Map;
+
+import bgu.spl.net.impl.data.LoginStatus;
 public class StompFrame {
 
     private String command;
@@ -96,7 +98,7 @@ public class StompFrame {
                 body + "\n"; // we dont add the null char here bc the encoder will add it
         return frame;
     }
-
+    
     //automatic error frame generation based on stored error message
     public StompFrame generateErrorFrame(){
         return generateErrorFrame(getError());

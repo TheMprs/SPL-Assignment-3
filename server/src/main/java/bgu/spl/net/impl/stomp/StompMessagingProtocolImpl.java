@@ -3,6 +3,7 @@ import java.util.HashMap;
 import bgu.spl.net.srv.Connections;
 import bgu.spl.net.srv.ConnectionsImpl;
 import bgu.spl.net.api.StompMessagingProtocol;
+import bgu.spl.net.impl.data.LoginStatus;
 
 //new class to implement the StompMessagingProtocol interface according to its new interface 
 public class StompMessagingProtocolImpl implements StompMessagingProtocol<String> {
@@ -74,8 +75,10 @@ public class StompMessagingProtocolImpl implements StompMessagingProtocol<String
 
     private void handleConnect(StompFrame frame){
         //register client in connections map
-        String connectionMessage = connections.connect(connectionId, frame.getHeader("login"), frame.getHeader("passcode"));
-        if(connectionMessage.equals("Success")){ //if connection's successful, send connected frame
+        LoginStatus connectionMessage = connections.connect(connectionId, frame.getHeader("login"), frame.getHeader("passcode"));
+        //if connection's successful, send connected frame
+        if(connectionMessage.equals(LoginStatus.LOGGED_IN_SUCCESSFULLY) // successful login 
+            || connectionMessage.equals(LoginStatus.ADDED_NEW_USER)){ //new user added and logged in
             //read version from accept-version header
             String version = frame.getHeader("accept-version");
 
@@ -84,7 +87,22 @@ public class StompMessagingProtocolImpl implements StompMessagingProtocol<String
             connections.send(connectionId, connectedFrame.toString());
         }
         else { //error connecting, send error frame and disconnect
-            StompFrame errorFrame = frame.generateErrorFrame(connectionMessage);
+            String errMsg ="";
+            switch(connectionMessage){
+                case ALREADY_LOGGED_IN:
+                    errMsg = "User already logged in";
+                    break;
+                case WRONG_PASSWORD:
+                    errMsg = "Wrong password";
+                    break;
+                case CLIENT_ALREADY_CONNECTED:
+                    errMsg = "Client already connected";
+                    break;
+                default:
+                    errMsg = "Connection error";
+                    break;
+            }
+            StompFrame errorFrame = frame.generateErrorFrame(errMsg);
             connections.send(connectionId, errorFrame.toString());
             connections.disconnect(connectionId);
             shouldTerminate = true;
@@ -146,10 +164,11 @@ public class StompMessagingProtocolImpl implements StompMessagingProtocol<String
 
     private void handleUnsubscribe(StompFrame frame){  
         if(connections.isUserLoggedIn(connectionId)){
-            //get channel name from client's subscription map
-            String channel = channelIds.get(Integer.parseInt(frame.getHeader("id")));
+            int subId = Integer.parseInt(frame.getHeader("id"));
+            //get channel name based on subscription id from client's subscription map
+            String channel = channelIds.get(subId);
             //remove channel from client's subscription map
-            channelIds.remove(Integer.parseInt(frame.getHeader("id")));
+            channelIds.remove(subId);
             //unsubscribe client from channel
             connections.unsubscribe(connectionId, channel);
             //send receipt if requested
