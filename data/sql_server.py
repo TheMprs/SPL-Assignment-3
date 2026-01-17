@@ -38,32 +38,32 @@ def init_database():
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS users (
                 username TEXT PRIMARY KEY,
-                password TEXT NOT NULL
+                password TEXT NOT NULL,
+                registration_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
         """)
-
+				
         # 2nd table for login/logout history
         cursor.execute("""
-            CREATE TABLE IF NOT EXISTS journal (
+            CREATE TABLE IF NOT EXISTS login_history (
                 id INTEGER PRIMARY KEY AUTOINCREMENT, 
                 username TEXT NOT NULL,
-                connection_id INTEGER NOT NULL,
                 login_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 logout_time TIMESTAMP,
                 FOREIGN KEY (username) REFERENCES users(username)
             )
         """)
         # we make the id be unique and autoincremented to identify each login session
-
+        
         # 3rd table for files
         cursor.execute("""
-            CREATE TABLE IF NOT EXISTS files (
+            CREATE TABLE IF NOT EXISTS file_tracking (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
+                username TEXT NOT NULL,
                 filename TEXT NOT NULL,
-                uploader TEXT NOT NULL,
                 upload_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                channel TEXT NOT NULL,
-                FOREIGN KEY (uploader) REFERENCES users(username)
+                game_channel TEXT NOT NULL,
+                FOREIGN KEY (username) REFERENCES users(username)
             )
         """)
     dbcon.commit()
