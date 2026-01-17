@@ -5,7 +5,7 @@ import bgu.spl.net.srv.ConnectionsImpl;
 import bgu.spl.net.api.StompMessagingProtocol;
 
 //new class to implement the StompMessagingProtocol interface according to its new interface 
-public class StompProtocolImpl implements StompMessagingProtocol<String> {
+public class StompMessagingProtocolImpl implements StompMessagingProtocol<String> {
     
     private boolean shouldTerminate = false;
     private ConnectionsImpl<String> connections;
