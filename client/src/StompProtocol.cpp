@@ -15,13 +15,19 @@ StompProtocol::StompProtocol():
 {
 
 }
+
 //private helper functions
 std::string StompProtocol::createSendFrame(Event& event, const std::string& filename) {
     std::string stompFrame = "SEND\n";
     
     std::string gameName = event.get_team_a_name()+"_"+event.get_team_b_name();
     //construct channel name based on teams
-    stompFrame += "destination:"+gameName+"\n\n";
+    stompFrame += "destination:"+gameName+"\n";
+
+    //add filename header
+    stompFrame += "filename:" + filename + "\n";
+
+    stompFrame += "\n"; // blank line before body
 
     // Construct body
     std::string body;
@@ -34,24 +40,35 @@ std::string StompProtocol::createSendFrame(Event& event, const std::string& file
     
     stompFrame += body;
     
-    stompFrame += "filename:" + filename + "\n";
-
     userGames[gameName].push_back(event); // add event to user's game events
     
     return stompFrame;
 }
 
 std::string StompProtocol::writeSummary(std::string username, std::string game_name) {
-            std::string sum="";
-            // find all events for the user in the specified game
-            std::vector<Event> events = allGames[username];
-            for(Event event : events){
-                // log only events from the specified game
-                if(event.get_team_a_name()+"_"+event.get_team_b_name() == game_name)
-                    sum+=event.get_discription();
-            }
-            return sum;
+    std::string sum="";
+    // check if user has any events    
+    if (allGames.find(username) == allGames.end()) {
+        return "No events found for user " + username + ".\n";
+    }
+    
+    // find all events for the user in the specified game
+    std::vector<Event> events = allGames[username];
+    for(Event event : events){
+        // log only events from the specified game
+        if(event.get_team_a_name()+"_"+event.get_team_b_name() == game_name) {
+            // summary format is: 
+            // time - event name:
+            // description
+            sum += std::to_string(event.get_time()) + " - " + event.get_name() + ":\n";
+            sum+=event.get_discription()+"\n\n";
         }
+    }
+    if (sum.empty()) {
+        return "User has events, but none for game: " + game_name + "\n";
+    }
+    return sum;
+}
     
 
 std::string StompProtocol::processClientInput(std::vector<std::string> words){
@@ -92,8 +109,26 @@ void StompProtocol::processServerFrame(const std::string &frame){
         
         //generate event from body
         Event event = Event(body);
-        // store the event in allGames map
-        allGames[event.get_name()].push_back(event);
+        
+        // find the username in the body string
+        std::string owner = "";
+        size_t userPos = body.find("user:");
+        if (userPos != std::string::npos) {
+            size_t start = userPos + 5; // ignore "user:"
+            size_t end = body.find('\n', start);
+            if (end != std::string::npos) {
+                owner = body.substr(start, end - start);
+                
+                if(!owner.empty() && owner.back() == '\r'){ 
+                    owner.pop_back(); // remove sometimes there is a trailing \r character, remove it
+                }
+            }
+        }
+
+        // store using the username as the key
+        if (!owner.empty()) { 
+            allGames[owner].push_back(event);
+        }
     }
 }
 
@@ -165,7 +200,7 @@ std::string StompProtocol::handleExit(std::vector<std::string> words) {
 //send frames based on events file 
 std::string StompProtocol::handleReport(std::vector<std::string> words) {
     if(words.size() < 2)
-        std::cerr << "Error: exit requires {file}" << std::endl;
+        std::cerr << "Error: report requires {file}" << std::endl;
     
     std::string file_path = words[1];
     //read the provided file, parse game name and events 
@@ -176,7 +211,14 @@ std::string StompProtocol::handleReport(std::vector<std::string> words) {
     for (Event& event : details.events) { // for each event in the file
         // in the createSendFrame function, we also add the event to the user's game events
         frames += createSendFrame(event,file_path);
+        frames += '\0'; // null character to indicate end of frame
+
     }
+
+    if(!frames.empty()){
+        frames.pop_back(); // remove last null character
+    }
+
     return frames;
 }
 

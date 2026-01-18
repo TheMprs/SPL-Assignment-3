@@ -5,7 +5,7 @@
 #include "../include/StompProtocol.h"
 #include <sstream>
 
-void SocketTask (ConnectionHandler &handler){
+void SocketTask (ConnectionHandler &handler, StompProtocol &protocol) {
 	while(true){
 		std::string frame;
 		if(!handler.getFrame(frame)){
@@ -14,6 +14,7 @@ void SocketTask (ConnectionHandler &handler){
 		}
 		else{
 			std::cout<<"From Server: " << frame << std::endl;
+			protocol.processServerFrame(frame);
 		}
 	}
 }
@@ -41,7 +42,7 @@ int main(int argc, char *argv[]) {
 	   This ensures the thread operates on the original 'handler' instance 
 	   instead of a copy, which is essential for shared state and resources.
 	*/
-	std::thread networkThread(SocketTask,std::ref(handler)); 
+	std::thread networkThread(SocketTask,std::ref(handler), std::ref(stompProtocol)); 
 	std::string input;
 
 	// === end connection logic === 
@@ -60,14 +61,13 @@ int main(int argc, char *argv[]) {
 		if (words.empty()) continue; // Skip empty input
 
 		std::string stompFrame = stompProtocol.processClientInput(words);
-		std::cout << "[DEBUG] stompFrame sent to server: " << stompFrame << std::endl;
 		
 		if (!stompFrame.empty() && !handler.sendFrame(stompFrame)) { // Send the frame to the server
 			std::cout << "Failed to send frame to server. Exiting..." << std::endl;
 			break;
 		}
 
-	}while(input != "quit"); // DEBUG quit method
+	}while(input != "logout"); // DEBUG quit method
 
 	// We use join() to ensure the socket thread finishes processing 
     // any remaining server messages before the application terminates.
