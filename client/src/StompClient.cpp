@@ -34,6 +34,8 @@ int main(int argc, char *argv[]) {
 		return 1;
 	}
 
+	StompProtocol stompProtocol; // Instantiate StompProtocol object
+
 	//Create the thread for socketTask
 	/* std::ref is required because std::thread copies its arguments by default.
 	   This ensures the thread operates on the original 'handler' instance 
@@ -57,13 +59,14 @@ int main(int argc, char *argv[]) {
 		
 		if (words.empty()) continue; // Skip empty input
 
-		std::string stompFrame = StompProtocol().processClientInput(words);
-
+		std::string stompFrame = stompProtocol.processClientInput(words);
+		std::cout << "[DEBUG] stompFrame sent to server: " << stompFrame << std::endl;
+		
 		if (!handler.sendFrame(stompFrame)) { // Send the frame to the server
 			std::cout << "Failed to send frame to server. Exiting..." << std::endl;
 			break;
 		}
-		
+
 	}while(input != "quit"); // DEBUG quit method
 
 	// We use join() to ensure the socket thread finishes processing 
