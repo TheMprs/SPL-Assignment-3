@@ -3,6 +3,7 @@ import java.util.HashMap;
 import bgu.spl.net.srv.Connections;
 import bgu.spl.net.srv.ConnectionsImpl;
 import bgu.spl.net.api.StompMessagingProtocol;
+import bgu.spl.net.impl.data.Database;
 import bgu.spl.net.impl.data.LoginStatus;
 
 //new class to implement the StompMessagingProtocol interface according to its new interface 
@@ -11,7 +12,10 @@ public class StompMessagingProtocolImpl implements StompMessagingProtocol<String
     private boolean shouldTerminate = false;
     private ConnectionsImpl<String> connections;
     private int connectionId;
+    private String username = null; // null as long as not logged in
     private HashMap<Integer, String> channelIds = new HashMap<>(); //map of channel id to channel name
+    //Singleton Database instance
+    private final Database database = Database.getInstance();
 
     public void start(int connectionId, Connections<String> connections){
         this.connectionId = connectionId;
@@ -55,10 +59,18 @@ public class StompMessagingProtocolImpl implements StompMessagingProtocol<String
 
     private void handleSend(StompFrame frame){
         String channel = frame.getHeader("destination");
+        String filename = frame.getHeader("filename");
+        
         //check if user is logged in and subscribed to the channel
         if(connections.isUserLoggedIn(connectionId) && connections.isUserSubscribed(connectionId, channel)) {
-                //send message to all subscribers of the destination channel
+            //Document user's filename in the database 
+            database.trackFileUpload(username, filename, channel);
+            
+            //send message to all subscribers of the destination channel
                 connections.send(channel, frame.getBody());
+
+                
+
                 //send receipt if requested
                 if(frame.receiptRequested()){
                     connections.send(connectionId, frame.generateReceiptFrame().toString());
@@ -74,11 +86,13 @@ public class StompMessagingProtocolImpl implements StompMessagingProtocol<String
     }
 
     private void handleConnect(StompFrame frame){
+        String login = frame.getHeader("login");
         //register client in connections map
-        LoginStatus connectionMessage = connections.connect(connectionId, frame.getHeader("login"), frame.getHeader("passcode"));
+        LoginStatus connectionMessage = connections.connect(connectionId, login, frame.getHeader("passcode"));
         //if connection's successful, send connected frame
         if(connectionMessage.equals(LoginStatus.LOGGED_IN_SUCCESSFULLY) // successful login 
             || connectionMessage.equals(LoginStatus.ADDED_NEW_USER)){ //new user added and logged in
+            this.username = login;
             //read version from accept-version header
             String version = frame.getHeader("accept-version");
 
