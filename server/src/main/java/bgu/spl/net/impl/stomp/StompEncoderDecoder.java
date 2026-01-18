@@ -35,6 +35,7 @@ public class StompEncoderDecoder implements MessageEncoderDecoder<String>{
 
     private String popString() {
         String result = new String(bytes, 0, len, StandardCharsets.UTF_8);
+        System.out.println("DEBUG: Parser received frame:\n" + result); // debug print
         len = 0;
         return result;
     }
