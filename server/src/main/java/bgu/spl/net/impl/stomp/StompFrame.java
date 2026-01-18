@@ -136,12 +136,6 @@ public class StompFrame {
         if(error != null) //check if parsing already found an error
             return false;
         
-        //a valid frame must end with \u0000
-        if(!body.endsWith("\u0000")) {
-            error = "frame did not end with \u0000 parameter";
-            return false;
-        }
-
         //check command presence
         if(command == null || command.isEmpty()){
             error = "missing command";

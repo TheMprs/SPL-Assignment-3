@@ -16,7 +16,7 @@ class StompProtocol
         bool loggedIn = false; // user login status
 
 
-        std::string createSendFrame(Event& event) {
+        std::string createSendFrame(Event& event, const std::string& filename) {
             std::string stompFrame = "SEND\n";
             
             std::string gameName = event.get_team_a_name()+"_"+event.get_team_b_name();
@@ -34,6 +34,8 @@ class StompProtocol
             
             stompFrame += body;
             
+            stompFrame += "filename: " + filename + "\n";
+
             userGames[gameName].push_back(event); // add event to user's game events
             
             return stompFrame;
@@ -54,23 +56,25 @@ class StompProtocol
     public:
 
         std::string processClientInput(std::vector<std::string> words){
+            
+            std::cout<<"[DEBUG] Processing client input: " << words[0] << std::endl;
             if(words[0] == "login"){ // login
-                    return handleLogin(words);
+                return handleLogin(words);
             }
-            else if(words[0] == "join"){ // subscribe
-                    return handleJoin(words);
+            if(words[0] == "join"){ // subscribe
+                return handleJoin(words);
             }
-            else if(words[0] == "exit"){ // unsubscribe
-                    return handleExit(words);
+            if(words[0] == "exit"){ // unsubscribe
+                return handleExit(words);
             }
-            else if(words[0] == "report"){ // send
-                    return handleReport(words);
+            if(words[0] == "report"){ // send
+                return handleReport(words);
             }
-            else if(words[0] == "summary"){ // summary 
-                    return handleSummary(words);
+            if(words[0] == "summary"){ // summary 
+                return handleSummary(words);
             }
-            else if(words[0] == "logout"){ // logout 
-                    return handleLogout();
+            if(words[0] == "logout"){ // logout 
+                return handleLogout();
             }
             else {
                 return "Unknown command";
@@ -98,7 +102,7 @@ class StompProtocol
         std::string handleLogin(std::vector<std::string> words) {
             if (words.size() < 4) {
                 std::cerr << "Error: login requires host:port, username and password" << std::endl;
-                return;
+                return "";
             }
             
             std::string hostPort = words[1];
@@ -163,14 +167,15 @@ class StompProtocol
             if(words.size() < 2)
                 std::cerr << "Error: exit requires {file}" << std::endl;
             
+            std::string file_path = words[1];
             //read the provided file, parse game name and events 
-            names_and_events details = parseEventsFile(words[1]);
+            names_and_events details = parseEventsFile(file_path);
             std::string frames="";
 
             // Construct and send SEND frames
             for (Event& event : details.events) { // for each event in the file
                 // in the createSendFrame function, we also add the event to the user's game events
-                frames += createSendFrame(event);
+                frames += createSendFrame(event,file_path);
             }
             return frames;
         }
