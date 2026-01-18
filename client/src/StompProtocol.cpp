@@ -1,5 +1,4 @@
 #pragma once
-#include <iostream>
 #include <fstream> // for file writing
 #include "../include/ConnectionHandler.h"
 #include "../include/event.h"
@@ -43,13 +42,25 @@ class StompProtocol
 
         // should log recieved frames and process them accordingly
         void processServerFrame(const std::string &frame){
-            
+            // check frame is a message frame
+            if(frame.find("MESSAGE") != std::string::npos){
+                // parse the frame to extract event details
+                
+                //find body in frame
+                size_t body_start = frame.find("\n\n") + 2;
+                std::string body = frame.substr(body_start);
+                
+                //generate event from body
+                Event event = Event(body);
+                // store the event in allGames map
+                allGames[event.get_name()].push_back(event);
+            }
         }
 
         //join frame
         std::string handleLogin(std::vector<std::string> words) {
             if (words.size() < 4) {
-                std::cout << "Error: login requires host:port, username and password" << std::endl;
+                std::cerr << "Error: login requires host:port, username and password" << std::endl;
                 return;
             }
             
@@ -71,7 +82,7 @@ class StompProtocol
         //subscribe frame
         std::string handleJoin(std::vector<std::string> words) {
             if(words.size() < 2)
-                std::cout << "Error: join requires game_name" << std::endl;
+                std::cerr << "Error: join requires game_name" << std::endl;
             std::string stompFrame = "SUBSCRIBE\n";
             stompFrame += "destination: "+words[2];
             stompFrame += "id: "+subscriptionIdCounter;
@@ -88,13 +99,13 @@ class StompProtocol
         //unsubscribe frame
         std::string handleExit(std::vector<std::string> words) {
             if(words.size() < 2)
-                std::cout << "Error: exit requires game_name" << std::endl;
+                std::cerr << "Error: exit requires game_name" << std::endl;
             
             // get sub id based on channel name
             std::string channel = std::to_string(channelIds[words[1]]);
             
-            // Construct and send DISCONNECT frame
-            std::string stompFrame = "Unsubscribe\n";
+            // Construct and send UNSUBSCRIBE frame
+            std::string stompFrame = "UNSUBSCRIBE\n";
             stompFrame += "id:" + channel + "\n";
             stompFrame += "receipt:" + words[1] + "\n\n\0";
 
@@ -104,7 +115,7 @@ class StompProtocol
         //send frames based on events file 
         std::string handleReport(std::vector<std::string> words) {
             if(words.size() < 2)
-                std::cout << "Error: exit requires {file}" << std::endl;
+                std::cerr << "Error: exit requires {file}" << std::endl;
             
             //read the provided file, parse game name and events 
             names_and_events details = parseEventsFile(words[1]);
@@ -112,6 +123,7 @@ class StompProtocol
 
             // Construct and send SEND frames
             for (Event& event : details.events) { // for each event in the file
+                // in the createSendFrame function, we also add the event to the user's game events
                 frames += createSendFrame(event);
             }
             return frames;
@@ -177,7 +189,7 @@ class StompProtocol
             for(Event event : events){
                 // log only events from the specified game
                 if(event.get_team_a_name()+"_"+event.get_team_b_name() == game_name)
-                    sum+=event.get_description();
+                    sum+=event.get_discription();
             }
             return sum;
         }
