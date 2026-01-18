@@ -68,7 +68,7 @@ Event::Event(const std::string &frame_body) : team_a_name(""), team_b_name(""), 
     std::string line;
     std::string header;
     
-    while(stream, line){ //iterate over stream and place each line in 'line' variable
+    while(std::getline(stream, line)){ //iterate over stream and place each line in 'line' variable
         if(line.find("team a: ") == 0){ // current line is team a name
             team_a_name = line.substr(8); // length of "team a: " is 8
         }
@@ -107,7 +107,7 @@ Event::Event(const std::string &frame_body) : team_a_name(""), team_b_name(""), 
             std::string value = line.substr(colon_pos + 2);
             
             // add key-value pair to the correct updates map
-            else if(header == "game updates"){ game_updates[key] = value; }
+            if(header == "game updates"){ game_updates[key] = value; }
             else if(header == "team a updates"){ team_a_updates[key] = value; }
             else if(header == "team b updates"){ team_b_updates[key] = value; }
         }

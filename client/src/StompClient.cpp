@@ -2,6 +2,7 @@
 #include <thread>
 #include <string>
 #include "../include/ConnectionHandler.h"
+#include "../include/StompProtocol.h"
 #include <sstream>
 
 void SocketTask (ConnectionHandler &handler){
@@ -40,6 +41,7 @@ int main(int argc, char *argv[]) {
 	std::string input;
 	
 	
+	
 	do{
 		//Get input from user
 		std::getline(std::cin, input);
@@ -59,13 +61,8 @@ int main(int argc, char *argv[]) {
                 continue;
             }
 			// send words to protocol to process
-            std::string stompFrame = "CONNECT\n";
-            stompFrame += "accept-version:1.2\n";
-            stompFrame += "host:stomp.cs.bgu.ac.il\n";
-            stompFrame += "login:" + words[2] + "\n";
-            stompFrame += "passcode:" + words[3] + "\n";
-            stompFrame += "\n"; //new line to signal we finished headers section
-            if (!handler.sendFrame(stompFrame)) {
+            std::string stompFrame = StompProtocol().handleLogin(words);
+			if (!handler.sendFrame(stompFrame)) {
                 std::cout << "Disconnected from server. Exiting..." << std::endl;
                 break;
             }

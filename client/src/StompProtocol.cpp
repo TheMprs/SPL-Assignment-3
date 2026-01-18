@@ -13,7 +13,44 @@ class StompProtocol
         std::string user; // current username
         std::map<std::string, std::vector<Event>> userGames; // map of games and their events for the current user
         std::map<std::string, std::vector<Event>> allGames; // map of all games and their events
+        bool loggedIn = false; // user login status
 
+
+        std::string createSendFrame(Event& event) {
+            std::string stompFrame = "SEND\n";
+            
+            std::string gameName = event.get_team_a_name()+"_"+event.get_team_b_name();
+            //construct channel name based on teams
+            stompFrame += "destination: "+gameName+"\n";
+
+            // Construct body
+            std::string body;
+            body += "user: " + user + "\n";
+            body += "team a: " + event.get_team_a_name() + "\n";
+            body += "team b: " + event.get_team_b_name() + "\n";
+            body += "event name: " + event.get_name() + "\n";
+            body += "time: " + std::to_string(event.get_time()) + "\n";
+            body += "description: " + event.get_discription() + "\n";   
+            
+            stompFrame += body + "\0"; // Null character to indicate end of frame
+            
+            userGames[gameName].push_back(event); // add event to user's game events
+            
+            return stompFrame;
+        }
+
+        std::string writeSummary(std::string username, std::string game_name) {
+            std::string sum="";
+            // find all events for the user in the specified game
+            std::vector<Event> events = allGames[username];
+            for(Event event : events){
+                // log only events from the specified game
+                if(event.get_team_a_name()+"_"+event.get_team_b_name() == game_name)
+                    sum+=event.get_discription();
+            }
+            return sum;
+        }
+    
     public:
 
         std::string processClientInput(std::vector<std::string> words){
@@ -83,16 +120,19 @@ class StompProtocol
         std::string handleJoin(std::vector<std::string> words) {
             if(words.size() < 2)
                 std::cerr << "Error: join requires game_name" << std::endl;
+            
+            std::string game_name = words[1];
+            
             std::string stompFrame = "SUBSCRIBE\n";
-            stompFrame += "destination: "+words[2];
-            stompFrame += "id: "+subscriptionIdCounter;
+            stompFrame += "destination: "+game_name + "\n";
+            stompFrame += "id: "+std::to_string(subscriptionIdCounter) + "\n";
             // assignemnt requires sending a reciept for every subscription
             stompFrame += "reciept: "+ std::to_string(recieptCounter) + "\n\n\0";            
 
             // map the topic to the subscription id
-            channelIds[words[2]] = subscriptionIdCounter;
-            // increment subscription id counter for next subscription
-            subscriptionIdCounter+=1;
+            channelIds[game_name] = subscriptionIdCounter;
+            recieptCounter+=1; // increment reciept counter for next reciept
+            subscriptionIdCounter+=1; // increment subscription id counter for next subscription
             return stompFrame;
         }
 
@@ -101,13 +141,17 @@ class StompProtocol
             if(words.size() < 2)
                 std::cerr << "Error: exit requires game_name" << std::endl;
             
+            std::string game_name = words[1];
+
             // get sub id based on channel name
-            std::string channel = std::to_string(channelIds[words[1]]);
+            std::string subId = std::to_string(channelIds[game_name]);
             
             // Construct and send UNSUBSCRIBE frame
             std::string stompFrame = "UNSUBSCRIBE\n";
-            stompFrame += "id:" + channel + "\n";
-            stompFrame += "receipt:" + words[1] + "\n\n\0";
+            stompFrame += "id:" + subId + "\n";
+            stompFrame += "receipt:" + std::to_string(recieptCounter) + "\n\n\0";
+
+            recieptCounter+=1; // increment reciept counter for next reciept
 
             return stompFrame;
         }
@@ -159,38 +203,4 @@ class StompProtocol
             return stompFrame;
         }
 
-        std::string createSendFrame(Event& event) {
-            std::string stompFrame = "SEND\n";
-            
-            std::string gameName = event.get_team_a_name()+"_"+event.get_team_b_name();
-            //construct channel name based on teams
-            stompFrame += "destination: "+gameName+"\n";
-
-            // Construct body
-            std::string body;
-            body += "user: " + user + "\n";
-            body += "team a: " + event.get_team_a_name() + "\n";
-            body += "team b: " + event.get_team_b_name() + "\n";
-            body += "event name: " + event.get_name() + "\n";
-            body += "time: " + std::to_string(event.get_time()) + "\n";
-            body += "description: " + event.get_discription() + "\n";   
-            
-            stompFrame += body + "\0"; // Null character to indicate end of frame
-            
-            userGames[gameName].push_back(event); // add event to user's game events
-            
-            return stompFrame;
-        }
-
-        std::string writeSummary(std::string username, std::string game_name) {
-            std::string sum="";
-            // find all events for the user in the specified game
-            std::vector<Event> events = allGames[username];
-            for(Event event : events){
-                // log only events from the specified game
-                if(event.get_team_a_name()+"_"+event.get_team_b_name() == game_name)
-                    sum+=event.get_discription();
-            }
-            return sum;
-        }
     };
