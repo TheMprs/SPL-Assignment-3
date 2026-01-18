@@ -62,7 +62,7 @@ int main(int argc, char *argv[]) {
 		std::string stompFrame = stompProtocol.processClientInput(words);
 		std::cout << "[DEBUG] stompFrame sent to server: " << stompFrame << std::endl;
 		
-		if (!handler.sendFrame(stompFrame)) { // Send the frame to the server
+		if (!stompFrame.empty() && !handler.sendFrame(stompFrame)) { // Send the frame to the server
 			std::cout << "Failed to send frame to server. Exiting..." << std::endl;
 			break;
 		}
