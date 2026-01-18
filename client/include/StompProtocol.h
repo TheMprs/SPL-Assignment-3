@@ -30,6 +30,7 @@ public:
     std::string handleReport(std::vector<std::string> words){}
     std::string handleSummary(std::vector<std::string> words){}
     std::string handleLogout(){}
+    bool isLoggedIn(){}
         
 };
 

@@ -32,7 +32,7 @@ class StompProtocol
             body += "time: " + std::to_string(event.get_time()) + "\n";
             body += "description: " + event.get_discription() + "\n";   
             
-            stompFrame += body + "\0"; // Null character to indicate end of frame
+            stompFrame += body;
             
             userGames[gameName].push_back(event); // add event to user's game events
             
@@ -109,8 +109,10 @@ class StompProtocol
             stompFrame += "accept-version:1.2\n";
             stompFrame += "host:" + hostPort + "\n";
             stompFrame += "login:" + username + "\n";
-            stompFrame += "passcode:" + password + "\n\n\0";
-
+            stompFrame += "passcode:" + password + "\n\n";
+            
+            //update login status
+            loggedIn = true;
             //update current username
             user = username;
             return stompFrame;
@@ -127,7 +129,7 @@ class StompProtocol
             stompFrame += "destination: "+game_name + "\n";
             stompFrame += "id: "+std::to_string(subscriptionIdCounter) + "\n";
             // assignemnt requires sending a reciept for every subscription
-            stompFrame += "reciept: "+ std::to_string(recieptCounter) + "\n\n\0";            
+            stompFrame += "receipt: "+ std::to_string(recieptCounter) + "\n\n";            
 
             // map the topic to the subscription id
             channelIds[game_name] = subscriptionIdCounter;
@@ -149,7 +151,7 @@ class StompProtocol
             // Construct and send UNSUBSCRIBE frame
             std::string stompFrame = "UNSUBSCRIBE\n";
             stompFrame += "id:" + subId + "\n";
-            stompFrame += "receipt:" + std::to_string(recieptCounter) + "\n\n\0";
+            stompFrame += "receipt:" + std::to_string(recieptCounter) + "\n\n";
 
             recieptCounter+=1; // increment reciept counter for next reciept
 
@@ -194,7 +196,7 @@ class StompProtocol
 
         std::string handleLogout() {
             std::string stompFrame = "DISCONNECT\n";
-            stompFrame += "receipt:" + std::to_string(recieptCounter) + "\n\n\0";
+            stompFrame += "receipt:" + std::to_string(recieptCounter) + "\n\n";
             
             channelIds.clear(); // clear all subscriptions on logout
             subscriptionIdCounter=0; // reset subscription id counter
@@ -203,4 +205,7 @@ class StompProtocol
             return stompFrame;
         }
 
+        bool isLoggedIn() const {
+            return loggedIn;
+        }
     };

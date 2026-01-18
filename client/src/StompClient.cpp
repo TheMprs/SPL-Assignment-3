@@ -24,6 +24,8 @@ int main(int argc, char *argv[]) {
 		std::cerr<< "There needs to be 3 arguments: Program name, IP adress and port"<<std::endl;
 		return 1;
 	}
+
+	// === start connection logic ===
 	std::string host_IP (argv[1]);
 	short port = std::stoi(argv[2]); //Convert string to int
 	ConnectionHandler handler(host_IP,port);
@@ -39,9 +41,10 @@ int main(int argc, char *argv[]) {
 	*/
 	std::thread networkThread(SocketTask,std::ref(handler)); 
 	std::string input;
+
+	// === end connection logic === 
 	
-	
-	
+	// === start user input logic ===
 	do{
 		//Get input from user
 		std::getline(std::cin, input);
@@ -51,29 +54,17 @@ int main(int argc, char *argv[]) {
 		while (ss >> word) { //inserts every word, seperated by space
    			 words.push_back(word);
 		}
-		//std::cout <<words[0]; debug to get the first word
+		
+		if (words.empty()) continue; // Skip empty input
 
-		if (words.empty()) continue;
+		std::string stompFrame = StompProtocol().processClientInput(words);
 
-        if (words[0] == "login") {
-            if (words.size() < 4) {
-                std::cout << "Error: login requires host:port, username and password" << std::endl;
-                continue;
-            }
-			// send words to protocol to process
-            std::string stompFrame = StompProtocol().handleLogin(words);
-			if (!handler.sendFrame(stompFrame)) {
-                std::cout << "Disconnected from server. Exiting..." << std::endl;
-                break;
-            }
-        } 
-        else if (words[0] == "quit") {
-            break; 
-        }
-        else {
-            std::cout << "Unknown command: " << words[0] << std::endl;
-        }
-	}while(input != "quit");
+		if (!handler.sendFrame(stompFrame)) { // Send the frame to the server
+			std::cout << "Failed to send frame to server. Exiting..." << std::endl;
+			break;
+		}
+		
+	}while(input != "quit"); // DEBUG quit method
 
 	// We use join() to ensure the socket thread finishes processing 
     // any remaining server messages before the application terminates.
