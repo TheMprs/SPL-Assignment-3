@@ -49,12 +49,33 @@ int main(int argc, char *argv[]) {
 		while (ss >> word) { //inserts every word, seperated by space
    			 words.push_back(word);
 		}
-		std::cout <<words[0];
-		//Try to send the input to server
-		if(!handler.sendFrame(input)){
-			std::cout << "Disconnected from server. Exiting..." << std::endl;
-			break;
-		}
+		//std::cout <<words[0]; debug to get the first word
+
+		if (words.empty()) continue;
+
+        if (words[0] == "login") {
+            if (words.size() < 4) {
+                std::cout << "Error: login requires host:port, username and password" << std::endl;
+                continue;
+            }
+
+            std::string stompFrame = "CONNECT\n";
+            stompFrame += "accept-version:1.2\n";
+            stompFrame += "host:stomp.cs.bgu.ac.il\n";
+            stompFrame += "login:" + words[2] + "\n";
+            stompFrame += "passcode:" + words[3] + "\n";
+            stompFrame += "\n"; //new line to signal we finished headers section
+            if (!handler.sendFrame(stompFrame)) {
+                std::cout << "Disconnected from server. Exiting..." << std::endl;
+                break;
+            }
+        } 
+        else if (words[0] == "quit") {
+            break; 
+        }
+        else {
+            std::cout << "Unknown command: " << words[0] << std::endl;
+        }
 	}while(input != "quit");
 
 	// We use join() to ensure the socket thread finishes processing 
