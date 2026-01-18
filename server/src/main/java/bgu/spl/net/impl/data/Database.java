@@ -157,13 +157,29 @@ public class Database {
 	 * @param gameChannel Game channel the file was reported to
 	 */
 	public void trackFileUpload(String username, String filename, String gameChannel) {
-		String sql = String.format(
-			"INSERT INTO file_tracking (username, filename, upload_time, game_channel) " +
-			"VALUES ('%s', '%s', datetime('now'), '%s')",
-			escapeSql(username), escapeSql(filename), escapeSql(gameChannel)
-		);
-		executeSQL(sql);
-	}
+    // 1. Basic validation: do nothing if filename is missing
+    if (filename == null || filename.isEmpty()) {
+        return;
+    }
+
+    // 2. The query: We want to INSERT a NEW row (not update!)
+    // but only if a similar action wasn't logged in the last 5 seconds.
+    String sql = String.format(
+        "INSERT INTO file_tracking (username, filename, upload_time, game_channel) " +
+        "SELECT '%s', '%s', datetime('now'), '%s' " +
+        "WHERE NOT EXISTS (" +
+        "    SELECT 1 FROM file_tracking " +
+        "    WHERE username = '%s' " +
+        "    AND filename = '%s' " +
+        "    AND game_channel = '%s' " +
+        "    AND upload_time > datetime('now', '-5 seconds')" +
+        ")",
+        escapeSql(username), escapeSql(filename), escapeSql(gameChannel),
+        escapeSql(username), escapeSql(filename), escapeSql(gameChannel)
+    );
+    
+    executeSQL(sql);
+}
 
 	/**
 	 * Generate and print server report using SQL queries
