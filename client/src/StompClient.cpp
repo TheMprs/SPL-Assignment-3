@@ -36,7 +36,7 @@ int main(int argc, char *argv[]) {
 	   This ensures the thread operates on the original 'handler' instance 
 	   instead of a copy, which is essential for shared state and resources.
 	*/
-	std::thread t1(SocketTask,std::ref(handler)); 
+	std::thread networkThread(SocketTask,std::ref(handler)); 
 	std::string input;
 	
 	
@@ -58,7 +58,7 @@ int main(int argc, char *argv[]) {
                 std::cout << "Error: login requires host:port, username and password" << std::endl;
                 continue;
             }
-
+			// send words to protocol to process
             std::string stompFrame = "CONNECT\n";
             stompFrame += "accept-version:1.2\n";
             stompFrame += "host:stomp.cs.bgu.ac.il\n";
@@ -81,8 +81,8 @@ int main(int argc, char *argv[]) {
 	// We use join() to ensure the socket thread finishes processing 
     // any remaining server messages before the application terminates.
 	//Joinable will be false if there's no such active thread anymore
-    if (t1.joinable()) {
-        t1.join();
+    if (networkThread.joinable()) {
+        networkThread.join();
     }
 
 	return 0;
