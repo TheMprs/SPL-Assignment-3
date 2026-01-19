@@ -92,6 +92,7 @@ public class NonBlockingConnectionHandler<T> implements ConnectionHandler<T> {
             } catch (IOException ex) {
                 ex.printStackTrace();
                 close();
+                return;
             }
         }
 

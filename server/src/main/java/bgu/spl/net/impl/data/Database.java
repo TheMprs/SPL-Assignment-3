@@ -76,7 +76,9 @@ public class Database {
 				"INSERT INTO users (username, password, registration_date) VALUES ('%s', '%s', datetime('now'))",
 				escapeSql(username), escapeSql(password)
 			);
-			executeSQL(sql);
+			String res = executeSQL(sql);
+                    if (res.startsWith("ERROR")) 
+						return LoginStatus.SQL_ERROR;
 			
 			// Log login
 			logLogin(username);
@@ -156,30 +158,35 @@ public class Database {
 	 * @param filename Name of the file
 	 * @param gameChannel Game channel the file was reported to
 	 */
-	public void trackFileUpload(String username, String filename, String gameChannel) {
-    // 1. Basic validation: do nothing if filename is missing
-    if (filename == null || filename.isEmpty()) {
-        return;
+
+    public boolean trackFileUpload(String username, String filename, String gameChannel) {
+        if (filename == null || filename.isEmpty()) {
+            return true;
+        }
+
+        String sql = String.format(
+            "INSERT INTO file_tracking (username, filename, upload_time, game_channel) " +
+            "SELECT '%s', '%s', datetime('now'), '%s' " +
+            "WHERE NOT EXISTS (" +
+            "    SELECT 1 FROM file_tracking " +
+            "    WHERE username = '%s' " +
+            "    AND filename = '%s' " +
+            "    AND game_channel = '%s' " +
+            "    AND upload_time > datetime('now', '-5 seconds')" +
+            ")",
+            escapeSql(username), escapeSql(filename), escapeSql(gameChannel),
+            escapeSql(username), escapeSql(filename), escapeSql(gameChannel)
+        );
+        
+        String result = executeSQL(sql);
+        
+        // Check if SQL execution returned an error string
+        if (result.startsWith("ERROR")) {
+            return false;
+        }
+        return true;
     }
 
-    // 2. The query: We want to INSERT a NEW row (not update!)
-    // but only if a similar action wasn't logged in the last 5 seconds.
-    String sql = String.format(
-        "INSERT INTO file_tracking (username, filename, upload_time, game_channel) " +
-        "SELECT '%s', '%s', datetime('now'), '%s' " +
-        "WHERE NOT EXISTS (" +
-        "    SELECT 1 FROM file_tracking " +
-        "    WHERE username = '%s' " +
-        "    AND filename = '%s' " +
-        "    AND game_channel = '%s' " +
-        "    AND upload_time > datetime('now', '-5 seconds')" +
-        ")",
-        escapeSql(username), escapeSql(filename), escapeSql(gameChannel),
-        escapeSql(username), escapeSql(filename), escapeSql(gameChannel)
-    );
-    
-    executeSQL(sql);
-}
 
 	/**
 	 * Generate and print server report using SQL queries

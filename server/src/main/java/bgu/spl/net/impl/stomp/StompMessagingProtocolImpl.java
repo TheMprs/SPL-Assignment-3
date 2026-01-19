@@ -63,8 +63,14 @@ public class StompMessagingProtocolImpl implements StompMessagingProtocol<String
         
         //check if user is logged in and subscribed to the channel
         if(connections.isUserLoggedIn(connectionId) && connections.isUserSubscribed(connectionId, channel)) {
-            //Document user's filename in the database 
-            database.trackFileUpload(username, filename, channel);
+            // Attempt to track in SQL but DON'T fail the whole operation if it fails
+            boolean dbSuccess = database.trackFileUpload(username, filename, channel);
+            
+            if (!dbSuccess) {
+                // Just log it on the server side, don't tell the client
+                System.err.println("SERVER WARNING: Failed to log file upload to SQL for user: " + username);
+                // We continue normally - the message will still be sent to others
+            }
             
             //send message to all subscribers of the destination channel
                 connections.send(channel, frame.getBody());
@@ -112,8 +118,11 @@ public class StompMessagingProtocolImpl implements StompMessagingProtocol<String
                 case CLIENT_ALREADY_CONNECTED:
                     errMsg = "Client already connected";
                     break;
+                case SQL_ERROR:
+                    errMsg = "Database connection error during login";
+                    break;
                 default:
-                    errMsg = "Connection error";
+                    errMsg = "Unknown error, this should never happen :(";
                     break;
             }
             StompFrame errorFrame = frame.generateErrorFrame(errMsg);
