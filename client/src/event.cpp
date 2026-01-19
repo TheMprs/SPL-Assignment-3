@@ -69,32 +69,36 @@ Event::Event(const std::string &frame_body) : team_a_name(""), team_b_name(""), 
     std::string header;
     
     while(std::getline(stream, line)){ //iterate over stream and place each line in 'line' variable
-        if(line.find("team a: ") == 0){ // current line is team a name
-            team_a_name = line.substr(8); // length of "team a: " is 8
+        if(line.find("team a:") == 0){ // current line is team a name
+            team_a_name = line.substr(7); // length of "team a:" is 7
         }
-        else if(line.find("team b: ") == 0){ // current line is team b name
-            team_b_name = line.substr(8); 
+        else if(line.find("team b:") == 0){ // current line is team b name
+            team_b_name = line.substr(7); 
         }
-        else if(line.find("event name: ") == 0){ // current line is event name
-            name = line.substr(12); 
+        else if(line.find("event name:") == 0){ // current line is event name
+            name = line.substr(11); 
         }
-        else if(line.find("time: ") == 0){ // current line is time
-            time = std::stoi(line.substr(6)); // converts string to int
+        else if(line.find("time:") == 0){ // current line is time
+            time = std::stoi(line.substr(5)); // converts string to int
         }
         
         // establish which header we're reading
 
-        else if(line.find("general game updates: ") == 0){ // current line is game updates
+        else if(line.find("general game updates:") == 0){ // current line is game updates
             header = "game updates"; 
         }
-        else if(line.find("team a updates: ") == 0){ // current line is team a updates
+        else if(line.find("team a updates:") == 0){ // current line is team a updates
             header = "team a updates"; 
         }
-        else if(line.find("team b updates: ") == 0){ // current line is team b updates
+        else if(line.find("team b updates:") == 0){ // current line is team b updates
             header = "team b updates"; 
         }
-        else if(line.find("description: ") == 0){ // current line is description
-            header = "description"; 
+        else if(line.find("description:") == 0){ // current line is description
+            header = "description";
+            if(line.length() > 12){ // check if theres more despcription in the same line
+                description += line.substr(12) + "\n"; // add rest of line to
+            }
+            
         }
         else if(!header.empty()){
             // depending on the current header, place the line in the correct variable
@@ -102,7 +106,7 @@ Event::Event(const std::string &frame_body) : team_a_name(""), team_b_name(""), 
                 description += line + "\n"; // add line to description
             }
 
-            size_t colon_pos = line.find(": ");
+            size_t colon_pos = line.find(":");
             std::string key = line.substr(0, colon_pos);
             std::string value = line.substr(colon_pos + 2);
             

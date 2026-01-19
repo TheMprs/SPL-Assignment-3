@@ -20,13 +20,9 @@ StompProtocol::StompProtocol():
 std::string StompProtocol::createSendFrame(Event& event, const std::string& filename) {
     std::string stompFrame = "SEND\n";
     
-    std::string gameName = event.get_team_a_name()+"_"+event.get_team_b_name();
-    //construct channel name based on teams
+    std::string gameName = event.get_team_a_name()+"_"+event.get_team_b_name(); //construct channel name based on teams
     stompFrame += "destination:"+gameName+"\n";
-
-    //add filename header
-    stompFrame += "filename:" + filename + "\n";
-
+    stompFrame += "filename:" + filename + "\n"; //add filename header
     stompFrame += "\n"; // blank line before body
 
     // Construct body
@@ -75,8 +71,7 @@ std::string StompProtocol::writeSummary(std::string username, std::string game_n
 }
     
 
-std::string StompProtocol::processClientInput(std::vector<std::string> words){
-            
+std::string StompProtocol::processClientInput(std::vector<std::string> words){        
             if(words[0] == "login"){ // login
                 return handleLogin(words);
             }

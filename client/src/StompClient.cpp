@@ -61,10 +61,11 @@ int main(int argc, char *argv[]) {
 		if (words.empty()) continue; // Skip empty input
 
 		std::string stompFrame = stompProtocol.processClientInput(words);
-		
-		if (!stompFrame.empty() && !handler.sendFrame(stompFrame)) { // Send the frame to the server
-			std::cout << "Failed to send frame to server. Exiting..." << std::endl;
-			break;
+		if(!stompFrame.empty()) { // Skip if no frame to send
+			if (!handler.sendFrame(stompFrame)) { // Send the frame to the server
+				std::cout << "Failed to send frame to server. Exiting..." << std::endl;
+				break;
+			}
 		}
 
 	}while(input != "logout"); // DEBUG quit method
