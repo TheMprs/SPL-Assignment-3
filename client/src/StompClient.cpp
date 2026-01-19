@@ -15,7 +15,6 @@ void SocketTask (ConnectionHandler &handler, StompProtocol &protocol) {
 			break;
 		}
 		else{
-			std::cout<<"From Server: " << frame << std::endl;
 			protocol.processServerFrame(frame);
 		}
 	}
@@ -37,7 +36,7 @@ int main(int argc, char *argv[]) {
 		return 1;
 	}
 
-	StompProtocol stompProtocol; // Instantiate StompProtocol object
+	StompProtocol stompProtocol; 
 
 	//Create the thread for socketTask
 	/* std::ref is required because std::thread copies its arguments by default.
@@ -47,32 +46,32 @@ int main(int argc, char *argv[]) {
 	std::thread networkThread(SocketTask,std::ref(handler), std::ref(stompProtocol)); 
 	std::string input;
 
-	// === end connection logic === 
 	
-	// === start user input logic ===
-	do{
-		//Get input from user
-		std::getline(std::cin, input);
-		std::vector<std::string> words;
-		std::string word;
-		std::stringstream ss (input);
-		while (ss >> word) { //inserts every word, seperated by space
-   			 words.push_back(word);
-		}
-		
-		if (words.empty()) continue; // Skip empty input
+	
+	//user input logic:
+	while (!stompProtocol.isTerminated()) {
+        if (!std::getline(std::cin, input)) break;
+        
+        std::vector<std::string> words;
+        std::string word;
+        std::stringstream ss (input);
+        while (ss >> word) {
+             words.push_back(word);
+        }
+        
+        if (words.empty()) continue;
 
-		std::string stompFrame = stompProtocol.processClientInput(words);
-		if(!stompFrame.empty()) { // Skip if no frame to send
-			if (!handler.sendFrame(stompFrame)) { // Send the frame to the server
-				std::cout << "Failed to send frame to server. Exiting..." << std::endl;
-				break;
-			}
-		}
+        std::string stompFrame = stompProtocol.processClientInput(words);
+        if(!stompFrame.empty()) {
+            if (!handler.sendFrame(stompFrame)) {
+                std::cout << "Failed to send frame to server." << std::endl;
+                break;
+            }
+        }
+        // Note: Even if user types 'logout', we stay in the loop to wait for server confirmation
+    }
 
-	}while(input != "logout"); // DEBUG quit method
-
-	// We use join() to ensure the socket thread finishes processing 
+	// We use join to ensure the socket thread finishes processing 
     // any remaining server messages before the application terminates.
 	//Joinable will be false if there's no such active thread anymore
     if (networkThread.joinable()) {

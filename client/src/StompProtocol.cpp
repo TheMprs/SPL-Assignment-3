@@ -13,7 +13,9 @@ StompProtocol::StompProtocol():
     allGames(), // map of all games and their events
     loggedIn(false), // user login status
     shouldTerminate(false),
+    receiptToMessage(),
     logoutReceiptId(-1) // -1 means we are NOT waiting for logout
+    
 {
 
 }
@@ -100,7 +102,12 @@ std::string StompProtocol::processClientInput(std::vector<std::string> words){
 // should log recieved frames and process them accordingly
 void StompProtocol::processServerFrame(const std::string &frame){
     // check frame is a message frame
-    if(frame.find("MESSAGE") != std::string::npos){
+    if (frame.find("CONNECTED") == 0) {
+        loggedIn = true;
+        std::cout << "Login successful" << std::endl;
+    }
+    
+    else if(frame.find("MESSAGE") != std::string::npos){
         // parse the frame to extract event details
         
         //find body in frame
@@ -152,14 +159,44 @@ void StompProtocol::processServerFrame(const std::string &frame){
     if (!rIdStr.empty()) {
         int rId = std::stoi(rIdStr);
         
-        // Check: Are we even waiting for logout? (id != -1)
-        // AND: Is this the correct receipt?
+        
         if (logoutReceiptId != -1 && rId == logoutReceiptId) {
             std::cout << "Logout confirmed" << std::endl;
             terminate();
         }
+        // Check if we have a stored message for this receipt ID
+        else if (receiptToMessage.count(rId)) {
+            std::cout << receiptToMessage[rId] << std::endl;
+            receiptToMessage.erase(rId); // Remove after printing
+            }
+        }
     }
-}
+    // If the server sends an ERROR, print it and close the connection
+    else if (frame.find("ERROR") == 0) {
+        // Extract the short summary from the 'message' header
+        std::string summary = getHeaderValue(frame, "message");
+        
+        // Extract the detailed explanation from the body (after the double newline)
+        size_t body_start = frame.find("\n\n");
+        std::string details = (body_start != std::string::npos) ? frame.substr(body_start + 2) : "";
+
+       // check if it's a logic error (as opposed to technial error)
+        if (summary.find("Wrong password") != std::string::npos) {
+            std::cout << "Wrong password" << std::endl;
+        } 
+        else if (summary.find("User already logged in") != std::string::npos) {
+            std::cout << "User already logged in" << std::endl;
+        }
+        else {
+            //Technical error. Print error for debug
+            std::cout << "Error from server: " << summary << std::endl;
+            if (!details.empty()) {
+                std::cout << "Details: " << details << std::endl;
+            }
+        }
+
+        terminate(); // Error frame means the server will close the connection anyway
+    }
 }
 
 //join frame
@@ -177,12 +214,14 @@ std::string StompProtocol::handleLogin(std::vector<std::string> words) {
     stompFrame += "accept-version:1.2\n";
     stompFrame += "host:" + hostPort + "\n";
     stompFrame += "login:" + username + "\n";
-    stompFrame += "passcode:" + password + "\n\n";
+    stompFrame += "passcode:" + password + "\n";
+    stompFrame += "\n";
     
-    //update login status
-    loggedIn = true;
+   
     //update current username
     user = username;
+
+
     return stompFrame;
 }
 
@@ -192,16 +231,17 @@ std::string StompProtocol::handleJoin(std::vector<std::string> words) {
         std::cerr << "Error: join requires game_name" << std::endl;
     
     std::string game_name = words[1];
+
+    int currentReceipt = recieptCounter++;
+    // Store what to print when the server confirms this request
+    receiptToMessage[currentReceipt] = "Joined channel " + game_name;
     
     std::string stompFrame = "SUBSCRIBE\n";
     stompFrame += "destination:"+game_name + "\n";
     stompFrame += "id:"+std::to_string(subscriptionIdCounter) + "\n";
-    // assignemnt requires sending a reciept for every subscription
-    stompFrame += "receipt:"+ std::to_string(recieptCounter) + "\n\n";            
-
+    stompFrame += "receipt:" + std::to_string(currentReceipt) + "\n\n";
     // map the topic to the subscription id
     channelIds[game_name] = subscriptionIdCounter;
-    recieptCounter+=1; // increment reciept counter for next reciept
     subscriptionIdCounter+=1; // increment subscription id counter for next subscription
     return stompFrame;
 }
@@ -212,17 +252,22 @@ std::string StompProtocol::handleExit(std::vector<std::string> words) {
         std::cerr << "Error: exit requires game_name" << std::endl;
         return "";
     }
+    
     std::string game_name = words[1];
+    int currentReceipt = recieptCounter++;
+    
+    // Store the message to print when the server sends the RECEIPT frame back
+    receiptToMessage[currentReceipt] = "Exited channel " + game_name;
 
-    // get sub id based on channel name
+    // Get sub id based on channel name from our local map
     std::string subId = std::to_string(channelIds[game_name]);
     
     // Construct and send UNSUBSCRIBE frame
     std::string stompFrame = "UNSUBSCRIBE\n";
     stompFrame += "id:" + subId + "\n";
-    stompFrame += "receipt:" + std::to_string(recieptCounter) + "\n\n";
 
-    recieptCounter+=1; // increment reciept counter for next reciept
+    // Use the receipt ID we just created and stored
+    stompFrame += "receipt:" + std::to_string(currentReceipt) + "\n\n";
 
     return stompFrame;
 }

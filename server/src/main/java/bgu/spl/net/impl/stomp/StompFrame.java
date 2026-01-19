@@ -30,27 +30,35 @@ public class StompFrame {
         this.error = null;
 
         //split message into lines
-        String[] lines = message.split("\n");
-
+        String[] lines = message.split("\n", -1);
         //first line is command
         this.command = lines[0].trim();
         //parse headers
         int i = 1;
-        while(i < lines.length && !lines[i].isEmpty()) { //stop when we reach the body/end of headers
-            //split header into key and value
-            String[] header = lines[i].split(":",2);
-            //ensure header has both key and value
+        while(i < lines.length && !lines[i].trim().isEmpty()) {            //split header into key and value
+        String[] header = lines[i].split(":", 2);            //ensure header has both key and value
             if(header.length == 2) {  
                 //insert parameter and value into headers map
-                headers.put(header[0], header[1]); 
+                headers.put(header[0].trim(), header[1].trim());
             }
             i++; 
         }
         //concatenate body lines
-        for(int j=i+1; j<lines.length-1; j++){ // the last line should be \u0000
-            this.body += lines[j]+"\n";
+        i++; // skip empty line
+    
+    StringBuilder bodyBuilder = new StringBuilder();
+    while (i < lines.length) { 
+        String currLine = lines[i];
+        if (currLine.contains("\u0000")) {
+            bodyBuilder.append(currLine.replace("\u0000", ""));
+            break;
         }
-        this.body += lines[lines.length-1]; //append last line (with \u0000)
+        bodyBuilder.append(currLine);
+        if (i < lines.length - 1)
+             bodyBuilder.append("\n");
+        i++;
+        }
+    this.body = bodyBuilder.toString().trim();
     }
 
     public String getCommand() {
@@ -106,8 +114,7 @@ public class StompFrame {
     //manual error frame generation with custom message
     public StompFrame generateErrorFrame(String errorMessage){
         Map<String, String> errHeaders = new HashMap<>();
-        errHeaders.put("message", "malformed frame received");
-        
+        errHeaders.put("message", errorMessage != null ? errorMessage : "unknown error");        
         // Remove null byte to avoid terminating error frame early
         String originalBody = this.toString().replace("\u0000", ""); 
 

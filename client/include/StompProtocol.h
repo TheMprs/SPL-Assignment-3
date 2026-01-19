@@ -16,7 +16,8 @@ class StompProtocol
         // map of all games and their events
         std::map<std::string, std::vector<Event>> allGames; 
 
-        bool loggedIn = false; // user login status
+        std::map<int, std::string> receiptToMessage; //To convert reciept to ui friendly messages
+            bool loggedIn = false; // user login status
 
         std::atomic<bool> shouldTerminate; // will change to 'true' on user logout
         int logoutReceiptId; //Will store logout receipt id to vlidate logout success
