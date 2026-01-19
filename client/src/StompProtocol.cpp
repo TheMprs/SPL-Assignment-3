@@ -11,7 +11,9 @@ StompProtocol::StompProtocol():
     user(""), // current username
     userGames(), // map of games and their events for the current user
     allGames(), // map of all games and their events
-    loggedIn(false) // user login status
+    loggedIn(false), // user login status
+    shouldTerminate(false),
+    logoutReceiptId(-1) // -1 means we are NOT waiting for logout
 {
 
 }
@@ -144,6 +146,20 @@ void StompProtocol::processServerFrame(const std::string &frame){
             allGames[owner].push_back(event);
         }
     }
+
+    else if (frame.find("RECEIPT") == 0) {
+    std::string rIdStr = getHeaderValue(frame, "receipt-id");
+    if (!rIdStr.empty()) {
+        int rId = std::stoi(rIdStr);
+        
+        // Check: Are we even waiting for logout? (id != -1)
+        // AND: Is this the correct receipt?
+        if (logoutReceiptId != -1 && rId == logoutReceiptId) {
+            std::cout << "Logout confirmed" << std::endl;
+            terminate();
+        }
+    }
+}
 }
 
 //join frame
@@ -256,6 +272,7 @@ std::string StompProtocol::handleSummary(std::vector<std::string> words) {
 }
 
 std::string StompProtocol::handleLogout() {
+    logoutReceiptId = recieptCounter;
     std::string stompFrame = "DISCONNECT\n";
     stompFrame += "receipt:" + std::to_string(recieptCounter) + "\n\n";
     
@@ -269,3 +286,23 @@ std::string StompProtocol::handleLogout() {
 bool StompProtocol::isLoggedIn() {
     return loggedIn;
 }
+
+bool StompProtocol::isTerminated() {
+    return shouldTerminate.load();
+}
+
+void StompProtocol::terminate() {
+    shouldTerminate.store(true); //Define client state after logout
+}
+
+// helper function to get value from a stomp header (like receipt-id:1)
+std::string StompProtocol::getHeaderValue(const std::string& frame, const std::string& key) {
+    std::string searchKey = key + ":";
+    size_t pos = frame.find(searchKey);
+    if (pos == std::string::npos) return "";
+    
+    size_t start = pos + searchKey.length();
+    size_t end = frame.find('\n', start);
+    return frame.substr(start, end - start);
+}
+

@@ -9,7 +9,9 @@ void SocketTask (ConnectionHandler &handler, StompProtocol &protocol) {
 	while(true){
 		std::string frame;
 		if(!handler.getFrame(frame)){
-			std::cout<<"Connection was disrupted"<<std::endl;
+			if (!protocol.isTerminated()) {
+                std::cout << "Connection was disrupted" << std::endl;
+            }
 			break;
 		}
 		else{

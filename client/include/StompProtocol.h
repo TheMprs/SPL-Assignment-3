@@ -18,8 +18,11 @@ class StompProtocol
 
         bool loggedIn = false; // user login status
 
+        std::atomic<bool> shouldTerminate; // will change to 'true' on user logout
+        int logoutReceiptId; //Will store logout receipt id to vlidate logout success
         std::string createSendFrame(Event& event, const std::string& filename);
         std::string writeSummary(std::string username, std::string game_name);
+        std::string getHeaderValue(const std::string& frame, const std::string& key);
             
     public:
         StompProtocol();
@@ -32,6 +35,8 @@ class StompProtocol
         std::string handleSummary(std::vector<std::string> words);
         std::string handleLogout();
         bool isLoggedIn();
+        bool isTerminated();
+        void terminate(); //to call when user does logout
             
 };
 

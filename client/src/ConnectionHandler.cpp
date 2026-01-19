@@ -39,8 +39,15 @@ bool ConnectionHandler::getBytes(char bytes[], unsigned int bytesToRead) {
 		while (!error && bytesToRead > tmp) {
 			tmp += socket_.read_some(boost::asio::buffer(bytes + tmp, bytesToRead - tmp), error);
 		}
-		if (error)
+		if (error){
+			// Check if the error is "End of File" (normal disconnect)
+            if (error == boost::asio::error::eof) {
+                // This is expected during logout, so we just return false quietly
+                return false;
+            }
 			throw boost::system::system_error(error);
+
+		}
 	} catch (std::exception &e) {
 		std::cerr << "recv failed (Error: " << e.what() << ')' << std::endl;
 		return false;
