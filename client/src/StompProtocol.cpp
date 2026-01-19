@@ -41,13 +41,15 @@ std::string StompProtocol::createSendFrame(Event& event, const std::string& file
     stompFrame += body;
     
     userGames[gameName].push_back(event); // add event to user's game events
-    
+    allGames[user].push_back(event); // add event to all games under the user's name
+
     return stompFrame;
 }
 
 std::string StompProtocol::writeSummary(std::string username, std::string game_name) {
     std::string sum="";
     // check if user has any events    
+    
     if (allGames.find(username) == allGames.end()) {
         return "No events found for user " + username + ".\n";
     }
@@ -55,8 +57,10 @@ std::string StompProtocol::writeSummary(std::string username, std::string game_n
     // find all events for the user in the specified game
     std::vector<Event> events = allGames[username];
     for(Event event : events){
+        std::string curr_gamename = event.get_team_a_name()+"_"+event.get_team_b_name();
+        
         // log only events from the specified game
-        if(event.get_team_a_name()+"_"+event.get_team_b_name() == game_name) {
+        if(curr_gamename == game_name) {
             // summary format is: 
             // time - event name:
             // description
@@ -73,7 +77,6 @@ std::string StompProtocol::writeSummary(std::string username, std::string game_n
 
 std::string StompProtocol::processClientInput(std::vector<std::string> words){
             
-            std::cout<<"[DEBUG-stmp-prtcl(cpp)] Processing client input: " << words[0] << std::endl;
             if(words[0] == "login"){ // login
                 return handleLogin(words);
             }
@@ -107,6 +110,15 @@ void StompProtocol::processServerFrame(const std::string &frame){
         size_t body_start = frame.find("\n\n") + 2;
         std::string body = frame.substr(body_start);
         
+        std::string remove_bad_chars = "";
+        for (char c : body) {
+            if (c != '\r') { // remove return characters
+                remove_bad_chars += c;
+            }
+        }
+        
+        body = remove_bad_chars;
+
         //generate event from body
         Event event = Event(body);
         
@@ -119,10 +131,17 @@ void StompProtocol::processServerFrame(const std::string &frame){
             if (end != std::string::npos) {
                 owner = body.substr(start, end - start);
                 
-                if(!owner.empty() && owner.back() == '\r'){ 
-                    owner.pop_back(); // remove sometimes there is a trailing \r character, remove it
-                }
             }
+        }
+
+        // Remove spaces
+        while (!owner.empty() && owner.front() == ' ') {
+            owner.erase(0, 1);
+        }
+        
+        // Remove back spaces 
+        while (!owner.empty() && (owner.back() == ' ' || owner.back() == '\n')) {
+            owner.pop_back();
         }
 
         // store using the username as the key

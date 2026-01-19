@@ -22,6 +22,7 @@ public class StompEncoderDecoder implements MessageEncoderDecoder<String>{
 
     @Override
     public byte[] encode(String message) { //transforms message to bytes
+        // add null char to end of message
         return (message + "\u0000").getBytes(); //uses utf8 by default
     }
 
@@ -35,7 +36,6 @@ public class StompEncoderDecoder implements MessageEncoderDecoder<String>{
 
     private String popString() {
         String result = new String(bytes, 0, len, StandardCharsets.UTF_8);
-        System.out.println("DEBUG: Parser received frame:\n" + result); // debug print
         len = 0;
         return result;
     }
