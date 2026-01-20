@@ -36,41 +36,107 @@ std::string StompProtocol::createSendFrame(Event& event, const std::string& file
     body += "team b:" + event.get_team_b_name() + "\n";
     body += "event name:" + event.get_name() + "\n";
     body += "time:" + std::to_string(event.get_time()) + "\n";
+    
+    // Add general game updates
+    body += "general game updates:\n";
+    for (const auto& pair : event.get_game_updates()) {
+        body += pair.first + ": " + pair.second + "\n";
+    }
+    
+    // Add team a updates
+    body += "team a updates:\n";
+    for (const auto& pair : event.get_team_a_updates()) {
+        body += pair.first + ": " + pair.second + "\n";
+    }
+    
+    // Add team b updates
+    body += "team b updates:\n";
+    for (const auto& pair : event.get_team_b_updates()) {
+        body += pair.first + ": " + pair.second + "\n";
+    }
+    
     body += "description:" + event.get_discription() + "\n";   
     
     stompFrame += body;
-    
-    userGames[gameName].push_back(event); // add event to user's game events
-    allGames[user].push_back(event); // add event to all games under the user's name
-
     return stompFrame;
 }
 
 std::string StompProtocol::writeSummary(std::string username, std::string game_name) {
     std::string sum="";
     // check if user has any events    
-    
     if (allGames.find(username) == allGames.end()) {
         return "No events found for user " + username + ".\n";
     }
     
     // find all events for the user in the specified game
     std::vector<Event> events = allGames[username];
+    std::vector<Event> gameEvents; // To store only relevant events for printing later
+    
+    // Maps to store stats (std::map sorts keys alphabetically automatically)
+    std::map<std::string, std::string> general_stats;
+    std::map<std::string, std::string> team_a_stats;
+    std::map<std::string, std::string> team_b_stats;
+    
+    std::string team_a_name = "";
+    std::string team_b_name = "";
+    
+    // Process events to gather stats and filter relevant events
     for(Event event : events){
         std::string curr_gamename = event.get_team_a_name()+"_"+event.get_team_b_name();
-        
-        // log only events from the specified game
-        if(curr_gamename == game_name) {
-            // summary format is: 
-            // time - event name:
-            // description
-            sum += std::to_string(event.get_time()) + " - " + event.get_name() + ":\n";
-            sum+=event.get_discription()+"\n\n";
+        gameEvents.push_back(event);
+
+        // Capture team names from the events (assuming consistent names)
+        if (team_a_name.empty()) team_a_name = event.get_team_a_name();
+        if (team_b_name.empty()) team_b_name = event.get_team_b_name();
+
+        // Update General Stats
+        for (const auto& pair : event.get_game_updates()) {
+            general_stats[pair.first] = pair.second;
+        }
+        // Update Team A Stats
+        for (const auto& pair : event.get_team_a_updates()) {
+            team_a_stats[pair.first] = pair.second;
+        }
+        // Update Team B Stats
+        for (const auto& pair : event.get_team_b_updates()) {
+            team_b_stats[pair.first] = pair.second;
         }
     }
-    if (sum.empty()) {
+    if (gameEvents.empty()) {
         return "User has events, but none for game: " + game_name + "\n";
     }
+
+    // Construct summary string
+    // Header
+    sum += team_a_name + " vs " + team_b_name + "\n";
+    sum += "Game stats:\n";
+    
+    // General stats
+    sum += "General stats:\n";
+    for (const auto& pair : general_stats) {
+        sum += pair.first + ": " + pair.second + "\n";
+    }
+    
+    // Team A stats
+    sum += team_a_name + " stats:\n";
+    for (const auto& pair : team_a_stats) {
+        sum += pair.first + ": " + pair.second + "\n";
+    }
+    
+    // Team B stats
+    sum += team_b_name + " stats:\n";
+    for (const auto& pair : team_b_stats) {
+        sum += pair.first + ": " + pair.second + "\n";
+    }
+    
+    // Game event reports
+    sum += "Game event reports:\n";
+    for (const Event& event : gameEvents) {
+        sum += std::to_string(event.get_time()) + " - " + event.get_name() + ":\n";
+        sum += event.get_discription() + "\n\n";
+    }
+
+
     return sum;
 }
     
@@ -296,12 +362,6 @@ std::vector<std::string> StompProtocol::handleReport(std::vector<std::string> wo
     for (Event& event : details.events) { // for each event in the file
         // in the createSendFrame function, we also add the event to the user's game events
         frames.push_back(createSendFrame(event,file_path));
-        frames.push_back("\0"); // null character to indicate end of frame
-
-    }
-
-    if(!frames.empty()){
-        frames.pop_back(); // remove last null character
     }
 
     return frames;

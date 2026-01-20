@@ -106,18 +106,18 @@ Event::Event(const std::string &frame_body) : team_a_name(""), team_b_name(""), 
                 description += line + "\n"; // add line to description
             }
 
-            size_t colon_pos = line.find(":");
-            std::string key = line.substr(0, colon_pos);
-            std::string value = line.substr(colon_pos + 2);
-            
-            // add key-value pair to the correct updates map
-            if(header == "game updates"){ game_updates[key] = value; }
-            else if(header == "team a updates"){ team_a_updates[key] = value; }
-            else if(header == "team b updates"){ team_b_updates[key] = value; }
+            else if(line.find(":") != std::string::npos) {  // Only parse if colon exists
+                size_t colon_pos = line.find(":");
+                std::string key = line.substr(0, colon_pos);
+                std::string value = line.substr(colon_pos + 2);
+        
+                // add key-value pair to the correct updates map
+                if(header == "game updates"){ game_updates[key] = value; }
+                else if(header == "team a updates"){ team_a_updates[key] = value; }
+                else if(header == "team b updates"){ team_b_updates[key] = value; }
+            }
         }
-
     }
-
 }
 
 names_and_events parseEventsFile(std::string json_path)
