@@ -108,7 +108,9 @@ public class Reactor<T> implements Server<T> {
                 readerFactory.get(),
                 stompProtocol,
                 clientChan,
-                this);
+                this,
+                connections,
+                connection_id);
         //We add this client to "connections" before the Reactor registers it to the selector
         connections.addConnection(connection_id, handler);
         clientChan.register(selector, SelectionKey.OP_READ, handler);
