@@ -129,6 +129,7 @@ def handle_client(client_socket: socket.socket, addr):
         print(f"[{SERVER_NAME}] Client {addr} disconnected")
 
 def start_server(host="127.0.0.1", port=7778):
+    init_database() # added database initialization
     server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
 
@@ -157,7 +158,6 @@ def start_server(host="127.0.0.1", port=7778):
 
 
 if __name__ == "__main__":
-    init_database()
     port = 7778
     if len(sys.argv) > 1:
         raw_port = sys.argv[1].strip()
