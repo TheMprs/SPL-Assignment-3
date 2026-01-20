@@ -68,7 +68,7 @@ public class ConnectionsImpl<T> implements Connections<T> {
                 int subId = entry.getValue();   
                
                 Map<String,String> headers = new HashMap<>();
-                headers.put("subsription", ""+subId);
+                headers.put("subscription", ""+subId);
                 headers.put("message-id", ""+messageId);
                 headers.put("destination", ""+channel);
 
