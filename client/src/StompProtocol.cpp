@@ -75,28 +75,31 @@ std::string StompProtocol::writeSummary(std::string username, std::string game_n
 }
     
 
-std::string StompProtocol::processClientInput(std::vector<std::string> words){        
+std::vector<std::string> StompProtocol::processClientInput(std::vector<std::string> words){        
+            std::vector<std::string> frames;
             if(words[0] == "login"){ // login
-                return handleLogin(words);
+                frames.push_back(handleLogin(words));
             }
-            if(words[0] == "join"){ // subscribe
-                return handleJoin(words);
+            else if(words[0] == "join"){ // subscribe
+                frames.push_back(handleJoin(words));
             }
-            if(words[0] == "exit"){ // unsubscribe
-                return handleExit(words);
+            else if(words[0] == "exit"){ // unsubscribe
+                frames.push_back(handleExit(words));
             }
-            if(words[0] == "report"){ // send
-                return handleReport(words);
+            else if(words[0] == "report"){ // send
+                frames = handleReport(words);
             }
-            if(words[0] == "summary"){ // summary 
-                return handleSummary(words);
+            else if(words[0] == "summary"){ // summary 
+                handleSummary(words);
             }
-            if(words[0] == "logout"){ // logout 
-                return handleLogout();
+            else if(words[0] == "logout"){ // logout 
+                frames.push_back(handleLogout());
             }
             else {
-                return "Unknown command";
+                std::cerr << "Unknown command: " << words[0] << std::endl;
             }
+            return frames;
+
         }
 
 // should log recieved frames and process them accordingly
@@ -273,7 +276,7 @@ std::string StompProtocol::handleExit(std::vector<std::string> words) {
 }
 
 //send frames based on events file 
-std::string StompProtocol::handleReport(std::vector<std::string> words) {
+std::vector<std::string> StompProtocol::handleReport(std::vector<std::string> words) {
     if(words.size() < 2)
         std::cerr << "Error: report requires {file}" << std::endl;
     
@@ -285,15 +288,15 @@ std::string StompProtocol::handleReport(std::vector<std::string> words) {
     } catch (const std::exception& e) {
         
         std::cout << "Error: Could not open or parse file: " << file_path << std::endl;
-        return "";
+        return {};
     }
-    std::string frames="";
+    std::vector<std::string> frames;
 
     // Construct and send SEND frames
     for (Event& event : details.events) { // for each event in the file
         // in the createSendFrame function, we also add the event to the user's game events
-        frames += createSendFrame(event,file_path);
-        frames += '\0'; // null character to indicate end of frame
+        frames.push_back(createSendFrame(event,file_path));
+        frames.push_back("\0"); // null character to indicate end of frame
 
     }
 

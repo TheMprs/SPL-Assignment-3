@@ -61,13 +61,15 @@ int main(int argc, char *argv[]) {
         
         if (words.empty()) continue;
 
-        std::string stompFrame = stompProtocol.processClientInput(words);
-        if(!stompFrame.empty()) {
-            if (!handler.sendFrame(stompFrame)) {
-                std::cout << "Failed to send frame to server." << std::endl;
-                break;
-            }
-        }
+        std::vector<std::string> stompFrames = stompProtocol.processClientInput(words);
+        for(std::string stompFrame : stompFrames) {
+			if(!stompFrame.empty()) {
+				if (!handler.sendFrame(stompFrame)) {
+					std::cout << "Failed to send frame to server." << std::endl;
+					break;
+				}
+        	}
+		}
         // Note: Even if user types 'logout', we stay in the loop to wait for server confirmation
     }
 

@@ -28,11 +28,11 @@ class StompProtocol
     public:
         StompProtocol();
         void processServerFrame(const std::string &frame);
-        std::string processClientInput(std::vector<std::string> words);
+        std::vector<std::string> processClientInput(std::vector<std::string> words);
         std::string handleLogin(std::vector<std::string> words);
         std::string handleJoin(std::vector<std::string> words);
         std::string handleExit(std::vector<std::string> words);
-        std::string handleReport(std::vector<std::string> words);
+        std::vector<std::string> handleReport(std::vector<std::string> words);
         std::string handleSummary(std::vector<std::string> words);
         std::string handleLogout();
         bool isLoggedIn();
