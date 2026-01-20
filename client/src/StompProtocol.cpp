@@ -279,7 +279,14 @@ std::string StompProtocol::handleReport(std::vector<std::string> words) {
     
     std::string file_path = words[1];
     //read the provided file, parse game name and events 
-    names_and_events details = parseEventsFile(file_path);
+    names_and_events details; 
+    try {
+        details = parseEventsFile(file_path);
+    } catch (const std::exception& e) {
+        
+        std::cout << "Error: Could not open or parse file: " << file_path << std::endl;
+        return "";
+    }
     std::string frames="";
 
     // Construct and send SEND frames
