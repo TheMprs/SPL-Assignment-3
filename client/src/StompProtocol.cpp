@@ -20,7 +20,7 @@ StompProtocol::StompProtocol():
 
 }
 
-//private helper functions
+//PRIVATE METHODS
 std::string StompProtocol::createSendFrame(Event& event, const std::string& filename) {
     std::string stompFrame = "SEND\n";
     
@@ -83,29 +83,32 @@ std::string StompProtocol::writeSummary(std::string username, std::string game_n
     // Process events to gather stats and filter relevant events
     for(Event event : events){
         std::string curr_gamename = event.get_team_a_name()+"_"+event.get_team_b_name();
-        gameEvents.push_back(event);
+        // if event is for the requested game, add to gameEvents
+        if(curr_gamename == game_name) {
+            gameEvents.push_back(event);
 
-        // Capture team names from the events (assuming consistent names)
-        if (team_a_name.empty()) team_a_name = event.get_team_a_name();
-        if (team_b_name.empty()) team_b_name = event.get_team_b_name();
+            // get team names from the events
+            if (team_a_name.empty()) team_a_name = event.get_team_a_name();
+            if (team_b_name.empty()) team_b_name = event.get_team_b_name();
 
-        // Update General Stats
-        for (const auto& pair : event.get_game_updates()) {
-            general_stats[pair.first] = pair.second;
-        }
-        // Update Team A Stats
-        for (const auto& pair : event.get_team_a_updates()) {
-            team_a_stats[pair.first] = pair.second;
-        }
-        // Update Team B Stats
-        for (const auto& pair : event.get_team_b_updates()) {
-            team_b_stats[pair.first] = pair.second;
+            // Update General Stats
+            for (const auto& pair : event.get_game_updates()) {
+                general_stats[pair.first] = pair.second;
+            }
+            // Update Team A Stats
+            for (const auto& pair : event.get_team_a_updates()) {
+                team_a_stats[pair.first] = pair.second;
+            }
+            // Update Team B Stats
+            for (const auto& pair : event.get_team_b_updates()) {
+                team_b_stats[pair.first] = pair.second;
+            }
         }
     }
     if (gameEvents.empty()) {
         return "User has events, but none for game: " + game_name + "\n";
     }
-
+    
     // Construct summary string
     // Header
     sum += team_a_name + " vs " + team_b_name + "\n";
@@ -132,15 +135,25 @@ std::string StompProtocol::writeSummary(std::string username, std::string game_n
     // Game event reports
     sum += "Game event reports:\n";
     for (const Event& event : gameEvents) {
-        sum += std::to_string(event.get_time()) + " - " + event.get_name() + ":\n";
+        sum += std::to_string(event.get_time()) + " " + event.get_name() + ":\n";
         sum += event.get_discription() + "\n\n";
     }
 
-
     return sum;
-}
-    
+}   
 
+// helper function to get value from a stomp header (like receipt-id:1)
+std::string StompProtocol::getHeaderValue(const std::string& frame, const std::string& key) {
+    std::string searchKey = key + ":";
+    size_t pos = frame.find(searchKey);
+    if (pos == std::string::npos) return "";
+    
+    size_t start = pos + searchKey.length();
+    size_t end = frame.find('\n', start);
+    return frame.substr(start, end - start);
+}
+
+//PUBLIC METHODS
 std::vector<std::string> StompProtocol::processClientInput(std::vector<std::string> words){        
             std::vector<std::string> frames;
             if(words[0] == "login"){ // login
@@ -408,16 +421,5 @@ bool StompProtocol::isTerminated() {
 
 void StompProtocol::terminate() {
     shouldTerminate.store(true); //Define client state after logout
-}
-
-// helper function to get value from a stomp header (like receipt-id:1)
-std::string StompProtocol::getHeaderValue(const std::string& frame, const std::string& key) {
-    std::string searchKey = key + ":";
-    size_t pos = frame.find(searchKey);
-    if (pos == std::string::npos) return "";
-    
-    size_t start = pos + searchKey.length();
-    size_t end = frame.find('\n', start);
-    return frame.substr(start, end - start);
 }
 

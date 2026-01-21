@@ -14,7 +14,7 @@ class StompProtocol
         // map of games and their events for the current user
         std::map<std::string, std::vector<Event>> userGames; 
         // map of all games and their events
-        std::map<std::string, std::vector<Event>> allGames; 
+        std::map<std::string, std::vector<Event>> allGames;
 
         std::map<int, std::string> receiptToMessage; //To convert reciept to ui friendly messages
             bool loggedIn = false; // user login status
@@ -27,8 +27,8 @@ class StompProtocol
             
     public:
         StompProtocol();
-        void processServerFrame(const std::string &frame);
         std::vector<std::string> processClientInput(std::vector<std::string> words);
+        void processServerFrame(const std::string &frame);
         std::string handleLogin(std::vector<std::string> words);
         std::string handleJoin(std::vector<std::string> words);
         std::string handleExit(std::vector<std::string> words);
